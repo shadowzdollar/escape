@@ -1,0 +1,33 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Car Lab</title>
+<style>html,body{margin:0;height:100%;background:#20242b;overflow:hidden}</style></head>
+<body><script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { createCar } from '/src/carModels.js';
+const q = new URLSearchParams(location.search);
+const r = new THREE.WebGLRenderer({antialias:true});
+r.setSize(innerWidth, innerHeight); r.toneMapping = THREE.ACESFilmicToneMapping; r.shadowMap.enabled = true;
+document.body.appendChild(r.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#9fb4c8');
+scene.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = +(q.get("env")||0.5); r.outputColorSpace = THREE.SRGBColorSpace;
+const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(10, 20, 12); sun.castShadow = true;
+sun.shadow.camera.left=-20;sun.shadow.camera.right=20;sun.shadow.camera.top=20;sun.shadow.camera.bottom=-20;sun.shadow.mapSize.set(2048,2048);
+scene.add(sun, new THREE.HemisphereLight(0xcfe3ff, 0x444433, 0.8));
+const g = new THREE.Mesh(new THREE.PlaneGeometry(200,200), new THREE.MeshStandardMaterial({color:'#6b6f75'})); g.rotation.x=-Math.PI/2; g.receiveShadow=true; scene.add(g);
+const models = (q.get('m')||'hatch,sedan,taxi,muscle,sports,super,hyper,truck,van,police,swat').split(',');
+const colors = ['#e63946','#2f6fe0','#ffd000','#f4a300','#d90429','#ffc300','#7b2ff7','#4d8a3d','#e0e0e0','#111a2e','#22262c'];
+models.forEach((m,i)=>{
+  let model=m, opts={color:colors[i%colors.length], premium:true};
+  if(m==='police'){model='sedan';opts={color:'#101828',livery:'police'};}
+  if(m==='swat'){model='van';opts={color:'#23272e',livery:'swat'};}
+  if(m==='taxi') opts.color='#ffc300';
+  const c = createCar(model, opts);
+  const cols = +(q.get('cols')||4);
+  c.root.position.set((i%cols - (cols-1)/2)*3.2, 0, -Math.floor(i/cols)*6.5);
+  c.root.rotation.y = +(q.get('ry')||0.9);
+  scene.add(c.root);
+});
+const cam = new THREE.PerspectiveCamera(+(q.get('fov')||35), innerWidth/innerHeight, 0.1, 500);
+cam.position.set(+(q.get('cx')||7), +(q.get('cy')||9), +(q.get('cz')||14)); cam.lookAt(+(q.get('tx')||0), 0.6, +(q.get('tz')||-6));
+r.render(scene, cam); window.__ready = true;
+</script></body></html>

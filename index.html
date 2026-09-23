@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>Escape: Overdrive</title>
+  <link rel="icon" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Russo+One&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div id="app"></div>
+
+  <!-- loading -->
+  <div id="loading" class="screen show">
+    <div class="logo"><span>ESCAPE</span><em>OVERDRIVE</em></div>
+    <div class="load-bar"><i></i></div>
+    <div class="load-text">Building city…</div>
+  </div>
+
+  <!-- main menu -->
+  <div id="menu" class="screen">
+    <div class="menu-left">
+      <div class="logo"><span>ESCAPE</span><em>OVERDRIVE</em></div>
+      <button class="btn big primary" data-action="play">▶ PLAY</button>
+      <button class="btn" data-action="garage">GARAGE</button>
+      <button class="btn" data-action="maps">MAPS</button>
+      <button class="btn" data-action="settings">SETTINGS</button>
+      <div class="menu-meta">
+        <div><b id="menu-map">METRO CITY</b></div>
+        <div>Best: <b id="menu-best">—</b></div>
+      </div>
+      <div class="controls-hint">
+        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows: drive</div>
+        <div><kbd>Space</kbd> handbrake drift · <kbd>Shift</kbd> nitro</div>
+        <div><kbd>C</kbd> camera · <kbd>Esc</kbd> pause · <kbd>M</kbd> mute</div>
+      </div>
+      <div class="joy-badge" id="joy-badge" data-action="settings">🎮 NO CONTROLLER</div>
+    </div>
+    <div class="wallet"><span class="coin-ico"></span><b id="wallet">0</b></div>
+  </div>
+
+  <!-- garage -->
+  <div id="garage" class="screen">
+    <div class="panel garage-panel">
+      <div class="panel-head"><button class="btn icon" data-action="back">←</button><h2>GARAGE</h2></div>
+      <div class="car-nav">
+        <button class="btn icon" data-action="prev-car">‹</button>
+        <div class="car-title"><h1 id="car-name">BOLT</h1><p id="car-tag"></p></div>
+        <button class="btn icon" data-action="next-car">›</button>
+      </div>
+      <div class="stats" id="car-stats"></div>
+      <div class="paints" id="paints"></div>
+      <button class="btn big primary" id="car-action">SELECTED</button>
+    </div>
+    <div class="wallet"><span class="coin-ico"></span><b class="wallet-val">0</b></div>
+  </div>
+
+  <!-- maps -->
+  <div id="maps" class="screen">
+    <div class="panel maps-panel">
+      <div class="panel-head"><button class="btn icon" data-action="back">←</button><h2>CHOOSE MAP</h2></div>
+      <div class="map-grid" id="map-grid"></div>
+    </div>
+  </div>
+
+  <!-- settings -->
+  <div id="settings" class="screen">
+    <div class="panel settings-panel">
+      <div class="panel-head"><button class="btn icon" data-action="back">←</button><h2>SETTINGS</h2></div>
+      <div class="setting"><span>Graphics</span><div class="seg" data-setting="quality"><button data-v="low">LOW</button><button data-v="medium">MED</button><button data-v="high">HIGH</button></div></div>
+      <div class="setting"><span>Camera</span><div class="seg" data-setting="camera"><button data-v="top">TOP-DOWN</button><button data-v="chase">CHASE</button></div></div>
+      <div class="setting"><span>Sound</span><div class="seg" data-setting="sound"><button data-v="true">ON</button><button data-v="false">OFF</button></div></div>
+      <div class="setting"><span>Music</span><div class="seg" data-setting="music"><button data-v="true">ON</button><button data-v="false">OFF</button></div></div>
+      <div class="setting"><span>FPS counter</span><div class="seg" data-setting="fps"><button data-v="true">ON</button><button data-v="false">OFF</button></div></div>
+      <div class="setting"><span>Arduino joystick</span><button class="btn small-btn" data-action="joy-connect">CONNECT</button></div>
+      <div class="setting joy-line" id="joy-status">Plug in the controller and press CONNECT (Chrome / Edge).</div>
+      <div class="setting"><span>Invert steering</span><div class="seg" data-setting="joyInvSteer"><button data-v="true">ON</button><button data-v="false">OFF</button></div></div>
+      <div class="setting"><span>Invert throttle</span><div class="seg" data-setting="joyInvThrottle"><button data-v="true">ON</button><button data-v="false">OFF</button></div></div>
+      <div class="setting stats-line" id="lifetime"></div>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud" class="screen">
+    <div class="hud-tl">
+      <div class="timer" id="h-time">0:00.00</div>
+      <div class="score"><span id="h-score">0</span> pts</div>
+      <div class="runcoins"><span class="coin-ico"></span><span id="h-coins">0</span></div>
+    </div>
+    <div class="hud-tc">
+      <div class="stars" id="h-stars"></div>
+      <div class="toasts" id="toasts"></div>
+    </div>
+    <canvas id="minimap" width="200" height="200"></canvas>
+    <div class="hud-bl">
+      <div class="bar hp"><label>HULL</label><div><i id="h-hp"></i></div></div>
+      <div class="bar nitro"><label>NITRO</label><div><i id="h-nitro"></i></div></div>
+      <div class="powers" id="h-powers"></div>
+    </div>
+    <div class="hud-br">
+      <div class="speedo"><b id="h-speed">0</b><span>KM/H</span></div>
+    </div>
+    <div class="bust" id="h-bust"><label>BUSTED</label><div><i id="h-bust-bar"></i></div></div>
+    <div class="combo" id="h-combo"></div>
+    <div class="fps" id="fps"></div>
+    <button class="btn icon pause-btn" data-action="pause">❚❚</button>
+    <div class="touch" id="touch">
+      <div class="tl">
+        <button data-touch="left">◀</button>
+        <button data-touch="right">▶</button>
+      </div>
+      <div class="tr">
+        <button data-touch="nitro" class="small">N₂O</button>
+        <button data-touch="drift" class="small">DRIFT</button>
+        <button data-touch="brake">▼</button>
+        <button data-touch="gas" class="gas">▲</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- pause -->
+  <div id="pause" class="screen dim">
+    <div class="panel center-panel">
+      <h2>PAUSED</h2>
+      <button class="btn big primary" data-action="resume">RESUME</button>
+      <button class="btn" data-action="restart">RESTART</button>
+      <button class="btn" data-action="quit">MAIN MENU</button>
+    </div>
+  </div>
+
+  <!-- game over -->
+  <div id="gameover" class="screen dim">
+    <div class="panel center-panel over-panel">
+      <h1 id="go-title">BUSTED</h1>
+      <div class="go-sub" id="go-sub"></div>
+      <div class="go-stats" id="go-stats"></div>
+      <div class="go-earn"><span class="coin-ico"></span> +<b id="go-coins">0</b></div>
+      <div class="go-best" id="go-best">NEW BEST!</div>
+      <button class="btn big primary" data-action="restart">RETRY</button>
+      <button class="btn" data-action="garage-from-over">GARAGE</button>
+      <button class="btn" data-action="quit">MAIN MENU</button>
+    </div>
+  </div>
+
+  <div id="flash"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

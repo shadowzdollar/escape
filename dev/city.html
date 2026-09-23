@@ -1,0 +1,28 @@
+<!doctype html><html><head><meta charset="utf-8"><title>City Lab</title>
+<style>html,body{margin:0;height:100%;overflow:hidden}</style></head>
+<body><script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { City } from '/src/city.js';
+import { MAPS } from '/src/config.js';
+const q = new URLSearchParams(location.search);
+const map = MAPS.find(m=>m.id===(q.get('map')||'city'));
+const r = new THREE.WebGLRenderer({antialias:true});
+r.setSize(innerWidth, innerHeight); r.toneMapping = THREE.ACESFilmicToneMapping; r.shadowMap.enabled = true;
+document.body.appendChild(r.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(map.time==='night'?'#0b1020':'#a8c8e8');
+scene.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity=0.4;
+const sun = new THREE.DirectionalLight(0xffffff, map.time==='night'?0.2:2.4); sun.position.set(120, 200, 80); sun.castShadow = true;
+const S=+(q.get('ss')||200);sun.shadow.camera.left=-S;sun.shadow.camera.right=S;sun.shadow.camera.top=S;sun.shadow.camera.bottom=-S;sun.shadow.camera.far=800;sun.shadow.mapSize.set(4096,4096);
+const tx=+(q.get('tx')||0), tz=+(q.get('tz')||0);
+sun.target.position.set(tx,0,tz); sun.position.set(tx+120,200,tz+80); scene.add(sun.target);
+scene.add(sun, new THREE.HemisphereLight(0xcfe3ff, 0x555544, map.time==='night'?0.25:0.9));
+const t0=performance.now();
+const city = new City(map);
+console.warn('city build ms', (performance.now()-t0).toFixed(0), 'boxes', city.boxes.length, 'circles', city.circles.length, 'meshes', city.group.children.length);
+scene.add(city.group);
+const cam = new THREE.PerspectiveCamera(+(q.get('fov')||50), innerWidth/innerHeight, 0.5, 5000);
+cam.position.set(tx+ +(q.get('cx')||0), +(q.get('cy')||900), tz+ +(q.get('cz')||600)); cam.lookAt(tx, 0, tz);
+r.render(scene, cam);
+console.warn('draw calls', r.info.render.calls, 'tris', r.info.render.triangles);
+</script></body></html>
