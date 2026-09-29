@@ -112,6 +112,14 @@ export class Traffic {
       if (side > 2.6) continue;
       want = Math.min(want, Math.max(0, (ahead - 6) * 1.2));
     }
+    // stop for pedestrians on the road ahead
+    for (const p of g.people.list) {
+      const ox = p.x - v.x, oz = p.z - v.z;
+      const ahead = ox * fx + oz * fz;
+      if (ahead <= 0 || ahead > 14) continue;
+      if (Math.abs(ox * fz - oz * fx) > 2.4) continue;
+      want = Math.min(want, Math.max(0, (ahead - 4.5) * 1.1));
+    }
     const sp = v.vF;
     inp.throttle = sp < want - 0.5 ? 0.8 : 0;
     inp.brake = sp > want + 1.5 ? clamp((sp - want) / 6, 0.2, 1) : 0;

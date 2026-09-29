@@ -1,0 +1,27 @@
+import { chromium } from 'playwright-core';
+const [out] = process.argv.slice(2);
+const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-angle=vulkan', '--enable-features=Vulkan'] });
+const p = await b.newPage({ viewport: { width: 1280, height: 800 } });
+const errs = []; p.on('pageerror', (e) => errs.push(e.message + e.stack));
+await p.goto('http://localhost:5173/', { waitUntil: 'domcontentloaded', timeout: 90000 });
+await p.waitForFunction(() => window.game && window.game.state === 'menu', null, { timeout: 90000 });
+await p.evaluate(() => {
+  const g = window.game; g.frozen = true;
+  document.getElementById('menu').classList.remove('show');
+  g.showcase.root.visible = false;
+  const t = g.police.makeCop('tank', 4, 30, -0.35);
+  t.vx = t.vz = 0; t.ai.mode = 'fort';
+  t.car.turret.rotation.y = 0.25;
+  t.sync(0, 0);
+  window._t = t;
+  g.camera.position.set(t.x + 9.5, 4.6, t.z + 7.5);
+  g.camera.lookAt(t.x + 0.5, 1.2, t.z + 0.5);
+  g.focus.x = t.x; g.focus.z = t.z;
+});
+await p.waitForTimeout(900);
+await p.screenshot({ path: out + '/tank-1.png' });
+await p.evaluate(() => { const g = window.game, t = window._t; g.camera.position.set(t.x - 8, 6, t.z - 9); g.camera.lookAt(t.x, 1.2, t.z); });
+await p.waitForTimeout(700);
+await p.screenshot({ path: out + '/tank-2.png' });
+console.log(errs.join('\n') || 'no errors');
+await b.close();

@@ -13,6 +13,9 @@ import { createCar } from './carModels.js';
 import { Police } from './police.js';
 import { Traffic } from './traffic.js';
 import { Pickups } from './pickups.js';
+import { People } from './people.js';
+import { Military } from './military.js';
+import { Cinematic } from './cinematic.js';
 import { Effects } from './effects.js';
 import { GameAudio } from './audio.js';
 import { Input } from './input.js';
@@ -65,9 +68,9 @@ void main() {
 }`;
 
 const QUALITY = {
-  low: { pr: 1, shadows: 0, bloom: false, traffic: 14, msaa: 0 },
-  medium: { pr: 1.25, shadows: 1024, bloom: true, traffic: 20, msaa: 0 },
-  high: { pr: 1.5, shadows: 2048, bloom: true, traffic: 24, msaa: 4 },
+  low: { pr: 1, shadows: 0, bloom: false, traffic: 14, msaa: 0, people: 28 },
+  medium: { pr: 1.25, shadows: 1024, bloom: true, traffic: 20, msaa: 0, people: 50 },
+  high: { pr: 1.5, shadows: 2048, bloom: true, traffic: 24, msaa: 4, people: 80 },
 };
 
 class Game {
@@ -103,11 +106,15 @@ class Game {
     this.joy.invert.throttle = !!this.save.settings.joyInvThrottle;
     this.ui = new UI(this);
     this.joy.onStatus = (text, ok) => this.ui.joyStatus(text, ok);
+    this.cine = new Cinematic(this);
+    document.getElementById('cine').addEventListener('pointerdown', () => { this.cine.clicked = true; });
     this.joy.autoConnect();
     this.minimap = new Minimap(document.getElementById('minimap'));
     this.police = new Police(this);
     this.traffic = new Traffic(this);
     this.pickups = new Pickups(this);
+    this.people = new People(this);
+    this.military = new Military(this);
     this.applyQuality();
 
     window.addEventListener('resize', () => this.resize());
@@ -207,6 +214,7 @@ class Game {
     if (q.bloom && !this.composer) { this.initComposer(); this.composerMsaa = q.msaa; }
     this.dynScale = 1;
     this.traffic && (this.traffic.target = q.traffic);
+    this.people && (this.people.target = q.people);
     this.resize();
     if (this.atmos) this.applyAtmosphere(this.map);
   }
@@ -241,6 +249,7 @@ class Game {
     this.isNight = map.time === 'night';
     this.applyAtmosphere(map);
     this.minimap.build(this.city);
+    this.people.setCity(this.city);
     this.effects.setWeather(map.id === 'night' ? 'rain' : map.id === 'snow' ? 'snow' : null);
     this.ui.setLoading('Warming up engines…');
     await new Promise((r) => setTimeout(r, 20));
@@ -321,6 +330,8 @@ class Game {
     this.police.reset();
     this.traffic.reset();
     this.pickups.reset();
+    this.military.reset();
+    if (this.cine?.active) { this.cine.active = false; document.getElementById('cine').classList.remove('show'); this.audio.alarm?.(false); }
     this.effects.clear();
     if (this.player) {
       this.scene.remove(this.player.root);
@@ -333,7 +344,7 @@ class Game {
     this.fountains = [];
   }
 
-  startRun() {
+  startRun({ intro = false } = {}) {
     if (!this.city) return;
     this.audio.init();
     this.clearWorld();
@@ -341,7 +352,8 @@ class Game {
     const color = this.save.colors[def.id] || def.color;
     const p = this.player = new Vehicle({ model: def.model, stats: def.stats, color, kind: 'player', premium: true, neonColor: '#35f2ff' });
     p.car.root.traverse((o) => { if (o.isMesh && o !== p.car.shadow && o !== p.car.beam) o.castShadow = true; });
-    p.place(-4, -10, 0);
+    const bank = this.city.bank;
+    if (bank) p.place(bank.carX, bank.carZ, 0); else p.place(-4, -10, 0);
     this.scene.add(p.root);
     this.vehicles.add(p);
     p.car.beam.visible = this.isNight;
@@ -356,12 +368,56 @@ class Game {
     this.shake = 0;
     this.focus.x = p.x; this.focus.z = p.z;
     this.camTarget = new THREE.Vector3(p.x, 0, p.z);
+    this.audio.intensity = 0;
+    // pre-populate some traffic around the start (kept clear of the bank)
+    for (let k = 0; k < 10; k++) this.traffic.spawn(70, 180);
+    if (intro && bank) {
+      this.state = 'intro';
+      this.ui.show();
+      this.cine.start();
+    } else this.beginChase();
+  }
+
+  beginChase() {
+    const p = this.player;
     this.state = 'playing';
     this.ui.show('hud');
     this.ui.toast('ESCAPE THE POLICE!', 'warn');
-    this.audio.intensity = 0;
-    // pre-populate some traffic around the start
-    for (let k = 0; k < 10; k++) this.traffic.spawn(40, 180);
+    this.camTarget = new THREE.Vector3(p.x, 0, p.z);
+    this.last = performance.now();
+  }
+
+  // Blast damage + knockback for missiles, shells, bombs.
+  explode(x, z, r, power, owner = null) {
+    const p = this.player;
+    const d = p ? Math.hypot(p.x - x, p.z - z) : 999;
+    this.effects.explosion(x, z);
+    this.effects.debrisBurst(x, z, [0.35, 0.3, 0.25], 14);
+    if (d < 160) this.audio.explosion();
+    this.shake = Math.min(1.6, this.shake + Math.max(0, 1.3 - d / 60));
+    this.people.onExplosion(x, z, r);
+    this.city.query(x, z, r, (o) => {
+      if (o.type === 'circle' && o.breakable && o.alive && Math.hypot(o.x - x, o.z - z) < r) {
+        const res = this.city.smash(o, (o.x - x) * 2, (o.z - z) * 2);
+        if (res && res.kind === 'hydrant') this.fountains.push({ x: res.x, z: res.z, t: 6 });
+      }
+    });
+    for (const v of [...this.vehicles]) {
+      if (v === owner) continue;
+      const dd = Math.hypot(v.x - x, v.z - z);
+      if (dd > r) continue;
+      const k = 1 - dd / r;
+      const nx = (v.x - x) / (dd || 1), nz = (v.z - z) / (dd || 1);
+      v.applyImpulse(nx * 18 * k * v.mass, nz * 18 * k * v.mass, x, z);
+      let dmg = power * k * (v.copType === 'tank' ? 0.3 : 1);
+      if (v === p) {
+        if (this.powerTimers.shield > 0 || this.state !== 'playing') dmg = 0;
+        if (dmg > 8) this.ui.flash('hit');
+      }
+      v.damage(dmg);
+      if (v.kind === 'traffic') this.traffic.onHit(v, 10);
+      if (v !== p && !v.alive && !v.destroyed) this.onDestroyed(v);
+    }
   }
 
   pause() {
@@ -470,6 +526,7 @@ class Game {
       return;
     }
     const impact = info.impact;
+    if (impact > 10) this.people.onNoise(info.x, info.z, Math.min(1.3, impact / 18));
     if (impact > 5) this.effects.sparks(info.x, 0.7, info.z, info.nx, info.nz, Math.min(30, impact | 0), impact * 0.5);
     if (nearP && impact > 4) this.audio.crash(impact);
     let dmg = Math.max(0, impact - 9) * 1.05;
@@ -494,6 +551,7 @@ class Game {
       o.nmPending = false;
     }
     if (impact < 2.5) return;
+    if (impact > 8) this.people.onNoise(x, z, Math.min(1.5, impact / 15));
     const nearP = p && Math.hypot(x - p.x, z - p.z) < 70;
     this.effects.sparks(x, 0.8, z, nx, nz, Math.min(24, (impact * 0.8) | 0), impact * 0.4);
     if (nearP) this.audio.crash(impact * 0.9);
@@ -508,11 +566,25 @@ class Game {
       const o = a === p ? b : a;
       if (o.kind === 'traffic' && this.state === 'playing') this.heat += 1;
     }
+    if (a.copType === 'tank') db *= 1.6;
+    if (b.copType === 'tank') da *= 1.6;
     a.damage(da); b.damage(db);
     for (const v of [a, b]) {
       if (v.kind === 'traffic') this.traffic.onHit(v, impact);
       if (v !== p && !v.alive && !v.destroyed) this.onDestroyed(v);
     }
+  }
+
+  onPedestrianHit(p, v) {
+    const pl = this.player;
+    const d = pl ? Math.hypot(p.x - pl.x, p.z - pl.z) : 999;
+    if (d < 60) this.audio.thud?.();
+    v.vx *= 0.93; v.vz *= 0.93;
+    if (v !== pl || this.state !== 'playing') return;
+    this.score = Math.max(0, this.score - 100);
+    this.heat += 5;
+    this.shake = Math.min(1, this.shake + 0.2);
+    if (this.people.toastT <= 0) { this.ui.toast('PEDESTRIAN HIT  −100', 'bad'); this.people.toastT = 2; }
   }
 
   onDestroyed(v) {
@@ -545,6 +617,7 @@ class Game {
     let dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     this.frameDt = dt;
+    if (this.frozen) { this.render(); return; } // dev: simulation stepped manually
     if (this.save.settings.fps) {
       this.fpsAcc += dt; this.fpsFrames++;
       if (this.fpsAcc > 0.5) { this.ui.setFps(`${Math.round(this.fpsFrames / this.fpsAcc)} FPS · ${this.renderer.info.render.calls} calls`); this.fpsAcc = 0; this.fpsFrames = 0; }
@@ -556,7 +629,7 @@ class Game {
     this.time += dt;
 
     const tu = performance.now();
-    if (this.state === 'playing' || this.state === 'over') this.updatePlay(dt);
+    if (this.state === 'playing' || this.state === 'over' || this.state === 'intro') this.updatePlay(dt);
     else if (this.state === 'menu') this.updateMenu(dt);
     const tr = performance.now();
 
@@ -619,7 +692,7 @@ class Game {
     }
     if (I.wasPressed('KeyM')) this.setSetting('sound', !this.save.settings.sound);
     if (I.wasPressed('Enter')) {
-      if (this.state === 'menu') this.startRun();
+      if (this.state === 'menu') this.startRun({ intro: this.save.settings.intro !== false });
       else if (this.state === 'over' && document.getElementById('gameover').classList.contains('show')) this.startRun();
     }
     if (I.wasPressed('KeyR') && this.state === 'over' && document.getElementById('gameover').classList.contains('show')) this.startRun();
@@ -627,6 +700,7 @@ class Game {
 
   updateMenu(dt) {
     this.showAngle += dt * 0.12;
+    this.people.update(dt);
     this.placeShowroomCamera();
     const c = this.showcase;
     if (c) {
@@ -640,7 +714,9 @@ class Game {
   updatePlay(dt) {
     const p = this.player;
     const playing = this.state === 'playing';
-    const inp = playing ? this.input.read() : { steer: 0, throttle: 0, brake: 1, handbrake: false, nitro: false };
+    if (this.state === 'intro') this.cine.update(dt);
+    const intro = this.state === 'intro';
+    const inp = intro ? this.cine.input : playing ? this.input.read() : { steer: 0, throttle: 0, brake: 1, handbrake: false, nitro: false };
     p.input.steer = inp.steer; p.input.throttle = inp.throttle; p.input.brake = inp.brake; p.input.handbrake = inp.handbrake;
 
     // nitro
@@ -654,11 +730,14 @@ class Game {
     for (const k of Object.keys(this.powerTimers)) this.powerTimers[k] = Math.max(0, this.powerTimers[k] - dt);
     p.gripMul = this.powerTimers.spikes > 0 ? 0.5 : 1;
     p.speedMul = this.powerTimers.spikes > 0 ? 0.72 : 1;
+    if (intro && this.cine.hold) { p.speedMul = 0.001; p.vx *= 0.8; p.vz *= 0.8; }
 
     this.focus.x = p.x; this.focus.z = p.z;
     this.police.update(dt);
     this.traffic.update(dt);
     this.pickups.update(dt);
+    this.people.update(dt);
+    this.military.update(dt);
 
     // fixed-step physics
     const h = 1 / 60;
@@ -702,7 +781,7 @@ class Game {
       if (f.t <= 0) this.fountains.splice(k, 1);
     }
 
-    this.updateCamera(dt);
+    if (!intro) this.updateCamera(dt);
     this.updateAudio();
     if (playing) {
       this.ui.updateHUD(dt);
@@ -722,7 +801,7 @@ class Game {
       this.wantedLevel = lvl;
       this.maxLevel = Math.max(this.maxLevel, lvl);
       this.audio.levelUp();
-      this.ui.toast(`WANTED LEVEL ${lvl + 1}`, 'bad');
+      this.ui.toast(lvl === 4 ? `WANTED LEVEL ${lvl + 1}: SWAT TEAMS` : lvl === 5 ? `WANTED LEVEL ${lvl + 1}: ARMY TANKS` : lvl === 6 ? `WANTED LEVEL ${lvl + 1}: AIR STRIKE` : `WANTED LEVEL ${lvl + 1}`, 'bad');
       this.audio.intensity = lvl;
     }
 
@@ -862,12 +941,12 @@ class Game {
     const n = this.police.nearestCopDistance();
     const siren = n.d < 200 ? (1 - n.d / 200) * 0.09 * Math.min(1.5, 0.6 + this.copsNear * 0.2) : 0;
     this.audio.update({
-      active: this.state === 'playing' || this.state === 'over',
+      active: this.state === 'playing' || this.state === 'over' || this.state === 'intro',
       speedRatio: clamp(p.speed / (p.stats.speed * 1.3), 0, 1),
       throttle: p.input.throttle,
       drift: p.drift > 3.5 && p.speed > 8 ? p.drift : (p.braking && p.speed > 16 ? 6 : 0),
       siren, sirenPan: n.dx / 60,
-      rotor: this.police.rotorVolume(),
+      rotor: Math.min(0.45, this.police.rotorVolume() + this.military.rotorVolume()),
       nitro: p.nitroActive,
     });
   }

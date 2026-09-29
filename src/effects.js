@@ -271,6 +271,21 @@ export class Effects {
         color[0], color[1], color[2], 0.35, 0.6, { gravity: 6, drag: 2, alpha: 1 });
     }
   }
+  money(x, y, z) {
+    this.smokeP.spawn(x + (Math.random() - 0.5) * 0.6, y, z + (Math.random() - 0.5) * 0.6,
+      (Math.random() - 0.5) * 3, 1.5 + Math.random() * 2, (Math.random() - 0.5) * 3,
+      0.35, 0.72, 0.38, 0.28, 2.2, { gravity: 2.5, drag: 1.5, alpha: 1 });
+  }
+  missileTrail(x, y, z) {
+    this.smokeP.spawn(x, y, z, (Math.random() - 0.5) * 0.6, 0.4, (Math.random() - 0.5) * 0.6, 0.8, 0.8, 0.8, 0.7, 1.4, { grow: 2.2, alpha: 0.45, drag: 1 });
+    this.glowP.spawn(x, y, z, 0, 0, 0, 1, 0.6, 0.2, 0.7, 0.08, { alpha: 1 });
+  }
+  explosionSmall(x, y, z) {
+    for (let i = 0; i < 12; i++) {
+      this.glowP.spawn(x, y, z, (Math.random() - 0.5) * 5, Math.random() * 3, (Math.random() - 0.5) * 5, 1, 0.7, 0.3, 0.8, 0.25, { grow: 2, drag: 3, alpha: 1 });
+      this.smokeP.spawn(x, y, z, (Math.random() - 0.5) * 3, Math.random() * 2, (Math.random() - 0.5) * 3, 0.4, 0.4, 0.4, 1, 1.2, { grow: 3, drag: 2, alpha: 0.4 });
+    }
+  }
   splash(x, z) {
     for (let i = 0; i < 6; i++) {
       this.smokeP.spawn(x + (Math.random() - 0.5) * 0.3, 0.8, z + (Math.random() - 0.5) * 0.3,

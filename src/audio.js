@@ -181,6 +181,30 @@ export class GameAudio {
     this.tone('sine', 70, 28, 1.0, 0.6);
   }
   nearMiss() { this.tone('sine', 1200, 1800, 0.12, 0.06); }
+  thud() { this.noiseHit(300, 0.15, 0.35); this.tone('sine', 140, 60, 0.15, 0.25); }
+  alarm(on) {
+    if (!this.ctx) return;
+    if (on && !this.alarmNode) {
+      const ctx = this.ctx;
+      const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = 960;
+      const trem = ctx.createOscillator(); trem.frequency.value = 14;
+      const tg = ctx.createGain(); tg.gain.value = 0.5;
+      const g = ctx.createGain(); g.gain.value = 0.5;
+      trem.connect(tg).connect(g.gain);
+      const out = ctx.createGain(); out.gain.value = 0.05;
+      o.connect(g).connect(out).connect(this.sfx);
+      o.start(); trem.start();
+      this.alarmNode = { o, trem, out };
+    } else if (!on && this.alarmNode) {
+      const n = this.alarmNode; this.alarmNode = null;
+      n.out.gain.setTargetAtTime(0, this.ctx.currentTime, 0.3);
+      setTimeout(() => { n.o.stop(); n.trem.stop(); }, 1500);
+    }
+  }
+  warnBeep() { this.tone('square', 1400, 1400, 0.06, 0.06); this.tone('square', 1400, 1400, 0.06, 0.06, 0.12); }
+  missile() { this.noiseHit(900, 0.9, 0.3, 'bandpass'); this.tone('sawtooth', 200, 900, 0.6, 0.08); }
+  cannon(dist = 0) { const k = Math.max(0.15, 1 - dist / 200); this.noiseHit(250, 0.9, 0.9 * k); this.tone('sine', 90, 30, 0.6, 0.6 * k); }
+  bombWhistle() { this.tone('sine', 1800, 350, 1.7, 0.07); }
   click() { this.tone('square', 1500, 1500, 0.03, 0.05); }
   emp() { this.tone('sawtooth', 1600, 60, 0.8, 0.2); this.noiseHit(800, 0.8, 0.2, 'bandpass'); }
   spikes() { this.noiseHit(3000, 0.5, 0.3, 'highpass'); this.tone('sawtooth', 200, 60, 0.5, 0.15); }

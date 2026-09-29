@@ -5,7 +5,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CITY } from './config.js';
 import { mulberry32, clamp, rand, randInt, pick, valueNoise2D } from './utils.js';
 import {
-  asphaltTexture, groundTexture, sidewalkTexture, facadeTextures, radialTexture,
+  asphaltTexture, groundTexture, sidewalkTexture, facadeTextures, radialTexture, signTexture,
 } from './textures.js';
 
 const { N, BLOCK, ROAD, SIDEWALK, CELL, RIVER_ROW, HALF } = CITY;
@@ -311,6 +311,7 @@ export class City {
         if (o.s === st) continue;
         o.s = st;
         if (o.type === 'circle' && !o.alive) continue;
+        if (o.dead) continue;
         fn(o);
       }
     });
@@ -577,7 +578,7 @@ export class City {
 
   breakableProp(name, x, z, rotY, r) {
     const idx = this.prop(name, x, 0.15, z, rotY);
-    this.addCircle(x, z, r, name, { parts: [[name, idx]], kind: name });
+    this.addCircle(x, z, r, name, { parts: [[name, idx]], kind: name, rotY });
   }
 
   // ---------------------------------------------------------------- blocks
@@ -595,7 +596,8 @@ export class City {
         const n = this.noise(i * 0.45, j * 0.45);
         let type;
         const r = rng();
-        if (theme !== 'desert' && i <= 3 && j >= N - 5) type = 'industrial';
+        if (i === N / 2 - 1 && j === N / 2 - 1) type = 'bank';
+        else if (theme !== 'desert' && i <= 3 && j >= N - 5) type = 'industrial';
         else if (theme === 'desert' && i >= N - 4 && j <= 3) type = 'industrial';
         else if (r < 0.08 && !(i === N / 2 - 1 && j === N / 2 - 1)) type = 'park';
         else if (r < 0.12) type = 'plaza';
@@ -660,6 +662,7 @@ export class City {
       case 'park': this.buildPark(b, ix0, ix1, iz0, iz1); break;
       case 'plaza': this.buildPlaza(b, ix0, ix1, iz0, iz1); break;
       case 'parking': this.buildParking(b, ix0, ix1, iz0, iz1); break;
+      case 'bank': this.buildBank(b, ix0, ix1, iz0, iz1); break;
     }
   }
 
@@ -1012,6 +1015,62 @@ export class City {
     for (let k = 0; k < 6; k++) this.breakableProp('cone', rand(rng, ix0 + 2, ix1 - 2), rand(rng, iz0 + 2, iz0 + 6), 0, 0.3);
   }
 
+  // Classical bank: the heist location. Faces +x toward the avenue at x = 0.
+  buildBank(b, ix0, ix1, iz0, iz1) {
+    const Y = 0.15;
+    const stone = col(this.map.theme === 'desert' ? '#ecd9b6' : '#ebe4d6');
+    const trim = col('#c9a74a');
+    const roof = this.bucket(b.chunk, 'roof');
+    const c = this.bucket(b.chunk, 'concrete');
+    const plaza = this.bucket(b.chunk, 'sidewalk');
+    hquad(plaza, ix0, iz0, ix1, iz1, 0.16, col('#e9e3d6'), 6);
+    const bx0 = ix0 + 6, bx1 = ix1 - 11, bz0 = iz0 + 7, bz1 = iz1 - 7;
+    const zc = (iz0 + iz1) / 2;
+    const H = 15;
+    const style = this.theme.facades.office ? 'office' : Object.keys(this.theme.facades)[0];
+    const f = this.theme.facades[style];
+    fbox(this.bucket(b.chunk, 'f_' + style), roof, bx0, bx1, Y, Y + H, bz0, bz1, stone, col('#b9b3a6'), f, Y);
+    this.addBox(bx0, bx1, bz0, bz1, 'building', H);
+    pbox(roof, bx0 - 0.4, bx1 + 0.4, Y + H, Y + H + 0.8, bz0 - 0.4, bz1 + 0.4, stone);
+    pbox(roof, bx0 - 0.05, bx1 + 0.05, Y + H - 1.2, Y + H - 0.9, bz0 - 0.05, bz1 + 0.05, trim);
+    const sw = 22;
+    for (let k = 0; k < 4; k++) {
+      pbox(c, bx1, bx1 + 7 - k * 1.4, Y, Y + 0.25 * (k + 1), zc - sw / 2 + k * 0.3, zc + sw / 2 - k * 0.3, stone);
+    }
+    const py = Y + 1.0;
+    const px0 = bx1, px1 = bx1 + 4.4;
+    const colH = 10.5;
+    this.extraGeo = this.extraGeo || [];
+    for (let k = 0; k < 6; k++) {
+      const z = zc - 9 + k * 3.6;
+      const g = new THREE.CylinderGeometry(0.55, 0.65, colH, 14);
+      g.translate(px1 - 0.9, py + colH / 2, z);
+      this.extraGeo.push(g);
+      pbox(c, px1 - 1.6, px1 - 0.2, py, py + 0.5, z - 0.7, z + 0.7, stone);
+      pbox(c, px1 - 1.6, px1 - 0.2, py + colH - 0.4, py + colH, z - 0.7, z + 0.7, stone);
+      this.addCircle(px1 - 0.9, z, 0.7, 'column');
+    }
+    const ey = py + colH;
+    pbox(roof, px0, px1 + 0.3, ey, ey + 1.6, zc - sw / 2, zc + sw / 2, stone);
+    pbox(roof, px0, px1 + 0.35, ey + 0.2, ey + 0.35, zc - sw / 2, zc + sw / 2, trim);
+    gableRoof(roof, px0, px1 + 0.3, zc - sw / 2, zc + sw / 2, ey + 1.6, 3.2, stone, stone);
+    c.quad([bx1 + 0.02, py, zc - 2], [bx1 + 0.02, py, zc + 2], [bx1 + 0.02, py + 5.5, zc + 2], [bx1 + 0.02, py + 5.5, zc - 2], [1, 0, 0], [[0, 0], [1, 0], [1, 1], [0, 1]], col('#1c1a17'));
+    pbox(c, bx1, bx1 + 0.15, py, py + 5.9, zc - 2.4, zc - 2, trim);
+    pbox(c, bx1, bx1 + 0.15, py, py + 5.9, zc + 2, zc + 2.4, trim);
+    pbox(c, bx1, bx1 + 0.15, py + 5.5, py + 5.9, zc - 2.4, zc + 2.4, trim);
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(14, 1.3), new THREE.MeshStandardMaterial({
+      map: signTexture('FIRST NATIONAL BANK', '#c9a74a', '#ebe4d6'), roughness: 0.4, metalness: 0.3,
+    }));
+    sign.rotation.y = Math.PI / 2;
+    sign.position.set(px1 + 0.32, ey + 0.95, zc);
+    this.group.add(sign);
+    for (const dz of [-3.2, 3.2]) this.prop('beacon', bx1 + 0.4, py + 6.4, zc + dz, 0, 1.3);
+    this.lamp(ix1 - 0.9, zc - 12, Math.PI / 2);
+    this.lamp(ix1 - 0.9, zc + 12, Math.PI / 2);
+    for (const dz of [-8, 8]) this.tree(ix1 - 3, zc + dz * 2.2, 0.15);
+    this.bank = { doorX: bx1 + 0.3, doorZ: zc, stepX: bx1 + 7.5, carX: -4, carZ: zc + 1.5 };
+  }
+
   buildParking(b, ix0, ix1, iz0, iz1) {
     const rng = this.rng;
     const pk = this.bucket(b.chunk, 'parking');
@@ -1220,7 +1279,7 @@ export class City {
       }
     }
     if (this.extraGeo) {
-      const m = new THREE.Mesh(mergeGeometries(this.extraGeo.map((g) => { g.deleteAttribute('uv'); return g; })), new THREE.MeshStandardMaterial({ color: 0xd9d9d9, roughness: 0.4, metalness: 0.6 }));
+      const m = new THREE.Mesh(mergeGeometries(this.extraGeo.map((g) => { g.deleteAttribute('uv'); return g; })), new THREE.MeshStandardMaterial({ color: 0xe6e0d4, roughness: 0.55, metalness: 0.15 }));
       m.castShadow = m.receiveShadow = true;
       this.group.add(m);
     }

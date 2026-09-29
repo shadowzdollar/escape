@@ -7,12 +7,12 @@ import { CITY } from './config.js';
 let nextId = 1;
 
 export class Vehicle {
-  constructor({ model, stats, color, livery = null, kind = 'traffic', premium = false, accent, neonColor, underglow }) {
+  constructor({ model, stats, color, livery = null, kind = 'traffic', premium = false, accent, neonColor, underglow, car = null }) {
     this.id = nextId++;
     this.kind = kind; // 'player' | 'police' | 'traffic'
     this.model = model;
     this.stats = { ...stats };
-    this.car = createCar(model, { color, livery, premium, accent, neonColor, underglow });
+    this.car = car || createCar(model, { color, livery, premium, accent, neonColor, underglow });
     this.root = this.car.root;
     const s = this.car.spec;
     this.L = s.L; this.W = s.W;
@@ -79,7 +79,7 @@ export class Vehicle {
     }
     this.braking = false;
     if (brake > 0) {
-      if (vF > 0.8) { vF = Math.max(0, vF - 34 * brake * dt); this.braking = true; } else vF = Math.max(-s.speed * 0.4, vF - s.accel * 0.75 * brake * dt);
+      if (vF > 0.8) { vF = Math.max(0, vF - 34 * brake * dt); this.braking = true; } else if (disabled || inp.hold) { const k = 20 * dt; vF = Math.abs(vF) < k ? 0 : vF - Math.sign(vF) * k; } else vF = Math.max(-s.speed * 0.4, vF - s.accel * 0.75 * brake * dt);
     }
     if (throttle <= 0 && brake <= 0) {
       const eb = 2.2 * dt;

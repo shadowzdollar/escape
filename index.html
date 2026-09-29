@@ -74,6 +74,7 @@
       <div class="setting"><span>Camera</span><div class="seg" data-setting="camera"><button data-v="top">TOP-DOWN</button><button data-v="chase">CHASE</button></div></div>
       <div class="setting"><span>Sound</span><div class="seg" data-setting="sound"><button data-v="true">ON</button><button data-v="false">OFF</button></div></div>
       <div class="setting"><span>Music</span><div class="seg" data-setting="music"><button data-v="true">ON</button><button data-v="false">OFF</button></div></div>
+      <div class="setting"><span>Intro cinematic</span><div class="seg" data-setting="intro"><button data-v="true">ON</button><button data-v="false">OFF</button></div></div>
       <div class="setting"><span>FPS counter</span><div class="seg" data-setting="fps"><button data-v="true">ON</button><button data-v="false">OFF</button></div></div>
       <div class="setting"><span>Arduino joystick</span><button class="btn small-btn" data-action="joy-connect">CONNECT</button></div>
       <div class="setting joy-line" id="joy-status">Plug in the controller and press CONNECT (Chrome / Edge).</div>
@@ -143,6 +144,15 @@
       <button class="btn" data-action="garage-from-over">GARAGE</button>
       <button class="btn" data-action="quit">MAIN MENU</button>
     </div>
+  </div>
+
+  <!-- opening cinematic -->
+  <div id="cine" class="cine">
+    <div class="bar top"></div>
+    <div class="bar bottom"></div>
+    <div class="cine-title" id="cine-title"></div>
+    <div class="cine-sub" id="cine-sub"></div>
+    <div class="cine-skip">Press any key · click · right stick to skip</div>
   </div>
 
   <div id="flash"></div>

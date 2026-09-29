@@ -78,14 +78,20 @@ export const WANTED = [
   { heat: 0, maxCops: 2, spawnEvery: 5.0, types: ['patrol'] },
   { heat: 30, maxCops: 4, spawnEvery: 4.0, types: ['patrol', 'patrol', 'interceptor'] },
   { heat: 80, maxCops: 6, spawnEvery: 3.2, types: ['patrol', 'interceptor'], roadblocks: true },
-  { heat: 140, maxCops: 8, spawnEvery: 2.6, types: ['patrol', 'interceptor', 'swat'], roadblocks: true, heli: true },
-  { heat: 220, maxCops: 11, spawnEvery: 2.0, types: ['interceptor', 'interceptor', 'swat', 'patrol'], roadblocks: true, heli: true },
+  { heat: 140, maxCops: 8, spawnEvery: 2.6, types: ['patrol', 'interceptor', 'interceptor'], roadblocks: true, heli: true },
+  // 5★: SWAT armoured trucks join the chase
+  { heat: 220, maxCops: 11, spawnEvery: 2.0, types: ['swat', 'swat', 'interceptor', 'patrol'], roadblocks: true, heli: true, swat: true },
+  // 6★: the army arrives — tanks do the shooting (roadblocks + chasing tanks)
+  { heat: 290, maxCops: 8, spawnEvery: 2.4, types: ['swat', 'interceptor', 'patrol'], heli: true, tanks: 3, tankBlocks: true },
+  // 7★: a fleet of attack helicopters opens fire (missiles + bombs), tanks stay on you
+  { heat: 370, maxCops: 7, spawnEvery: 2.4, types: ['swat', 'interceptor'], heli: true, tanks: 3, tankBlocks: true, gunships: 5, bombs: true },
 ];
 
 export const COP_TYPES = {
   patrol: { model: 'sedan', speed: 39, accel: 25, handling: 2.7, grip: 7.5, hp: 90, mass: 1.25, livery: 'police' },
   interceptor: { model: 'sports', speed: 48, accel: 31, handling: 3.0, grip: 8.0, hp: 80, mass: 1.2, livery: 'police' },
   swat: { model: 'van', speed: 35, accel: 20, handling: 2.3, grip: 7.0, hp: 260, mass: 2.8, livery: 'swat' },
+  tank: { model: 'tank', speed: 24, accel: 11, handling: 1.5, grip: 9.0, hp: 700, mass: 7.0, livery: null },
 };
 
 export const TRAFFIC_MODELS = ['hatch', 'sedan', 'sedan', 'van', 'hatch', 'taxi', 'truck', 'sedan'];

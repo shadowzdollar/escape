@@ -88,12 +88,23 @@ export class Minimap {
       const r = Math.hypot(x, y), R = W / 2 - 8;
       if (r > R) { x *= R / r; y *= R / r; }
       ctx.fillStyle = !c.alive ? '#555' : blink ? '#ff3b3b' : '#3b7bff';
+      if (c.copType === 'tank') { ctx.fillStyle = c.alive ? '#9acd32' : '#555'; ctx.fillRect(x - 6, y - 6, 12, 12); continue; }
       ctx.beginPath(); ctx.arc(x, y, c.copType === 'swat' ? 5 : 4, 0, Math.PI * 2); ctx.fill();
     }
     if (game.police.heli) {
       const [x, y] = toMap(game.police.heli.x, game.police.heli.z);
       ctx.strokeStyle = '#ff5d5d'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.stroke();
+    }
+    for (const gs of game.military?.gunships || []) {
+      const [x, y] = toMap(gs.x, gs.z);
+      ctx.fillStyle = '#ff9f1c';
+      ctx.beginPath(); ctx.moveTo(x, y - 8); ctx.lineTo(x + 7, y); ctx.lineTo(x, y + 8); ctx.lineTo(x - 7, y); ctx.closePath(); ctx.fill();
+    }
+    for (const pr of game.military?.projectiles || []) {
+      const [x, y] = toMap(pr.mesh.position.x, pr.mesh.position.z);
+      ctx.fillStyle = '#ff3030';
+      ctx.fillRect(x - 2, y - 2, 4, 4);
     }
     // player arrow
     ctx.rotate(-rotate);

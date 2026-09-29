@@ -6,6 +6,7 @@ import { COP_TYPES, WANTED, CITY } from './config.js';
 import { clamp, wrapAngle, damp, pick } from './utils.js';
 import { radialTexture } from './textures.js';
 import { rc } from './city.js';
+import { createTank } from './military.js';
 
 const { CELL, N } = CITY;
 
@@ -44,7 +45,7 @@ export class Police {
   makeCop(type, x, z, heading) {
     const t = COP_TYPES[type];
     const v = new Vehicle({
-      model: t.model, stats: t, kind: 'police', livery: t.livery,
+      model: t.model, stats: t, kind: 'police', livery: t.livery, car: type === 'tank' ? createTank() : null,
       color: type === 'swat' ? '#1f2329' : type === 'interceptor' ? '#0d1422' : '#101828',
     });
     v.copType = type;
@@ -132,13 +133,21 @@ export class Police {
   think(cop, dt) {
     const g = this.game, p = g.player, city = g.city, ai = cop.ai, inp = cop.input;
     inp.nitro = false;
+    if (ai.mode === 'script') return; // driven by the cinematic
     if (!cop.alive) { inp.throttle = 0; inp.brake = 1; inp.steer = 0; inp.handbrake = false; return; }
     const dx = p.x - cop.x, dz = p.z - cop.z;
     const dist = Math.hypot(dx, dz);
 
     if (ai.mode === 'block') {
-      inp.throttle = 0; inp.brake = 1; inp.steer = 0;
-      if (dist < 24 || this.time > (ai.blockUntil ??= this.time + 40)) ai.mode = 'chase';
+      inp.throttle = 0; inp.brake = 1; inp.hold = true; inp.steer = 0;
+      if (dist < 24 || this.time > (ai.blockUntil ??= this.time + 40)) { ai.mode = 'chase'; inp.hold = false; }
+      return;
+    }
+    if (ai.mode === 'fort') {
+      // military roadblock: hold position and shoot; give chase once the player gets past
+      inp.throttle = 0; inp.brake = 1; inp.hold = true; inp.steer = 0; inp.handbrake = false;
+      const ahead = dx * Math.sin(cop.heading) + dz * Math.cos(cop.heading);
+      if (ahead < -8 || this.time > ai.fortUntil) { ai.mode = 'chase'; inp.hold = false; }
       return;
     }
     if (g.state !== 'playing') { inp.throttle = 0; inp.brake = 1; return; }
@@ -276,8 +285,10 @@ export class Police {
       const ph = this.time * 9 + c.ai.phase;
       const on = Math.sin(ph) > 0;
       const dis = c.disabledTimer > 0;
-      c.car.red.color.setRGB(on && !dis ? 4 : 0.3, 0.1, 0.1);
-      c.car.blue.color.setRGB(0.1, 0.25, !on && !dis ? 4.5 : 0.35);
+      if (c.car.red) {
+        c.car.red.color.setRGB(on && !dis ? 4 : 0.3, 0.1, 0.1);
+        c.car.blue.color.setRGB(0.1, 0.25, !on && !dis ? 4.5 : 0.35);
+      }
       if (c.car.pool) c.car.pool.material.color.set(on ? 0xff2020 : 0x2050ff);
       if (dis && Math.random() < dt * 12) g.effects.sparks(c.x, 1.2, c.z, 0, 1, 2, 3);
     }

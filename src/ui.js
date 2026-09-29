@@ -1,5 +1,5 @@
 // DOM UI: screens, garage, map select, settings, HUD and notifications.
-import { CARS, MAPS, PAINTS, POWERUPS, COIN_VALUE } from './config.js';
+import { CARS, MAPS, PAINTS, POWERUPS, COIN_VALUE, WANTED } from './config.js';
 import { formatTime } from './utils.js';
 
 const $ = (s) => document.querySelector(s);
@@ -16,7 +16,7 @@ export class UI {
       powers: $('#h-powers'), toasts: $('#toasts'), fps: $('#fps'), hpBar: document.querySelector('.bar.hp'),
       speedo: document.querySelector('.speedo'),
     };
-    this.h.stars.innerHTML = '<i>★</i>'.repeat(5);
+    this.h.stars.innerHTML = '<i>★</i>'.repeat(WANTED.length);
     this.starEls = [...this.h.stars.children];
     this.lastLevel = -1;
 
@@ -110,7 +110,7 @@ export class UI {
   action(a) {
     const g = this.game;
     switch (a) {
-      case 'play': g.startRun(); break;
+      case 'play': g.startRun({ intro: g.save.settings.intro !== false }); break;
       case 'garage': this.openGarage(); break;
       case 'garage-from-over': g.toMenu(); this.openGarage(); break;
       case 'maps': this.openMaps(); break;
