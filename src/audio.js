@@ -110,7 +110,7 @@ export class GameAudio {
   }
 
   // Continuous state from the game each frame.
-  update({ speedRatio = 0, throttle = 0, active = false, drift = 0, siren = 0, sirenPan = 0, rotor = 0, nitro = false }) {
+  update({ speedRatio = 0, throttle = 0, active = false, drift = 0, siren = 0, sirenPan = 0, rotor = 0, nitro = false, foot = false }) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
     const rpm = 0.25 + speedRatio * 0.75;
@@ -122,7 +122,7 @@ export class GameAudio {
     this.eng1.frequency.setTargetAtTime(f, t, 0.05);
     this.eng2.frequency.setTargetAtTime(f * 0.5, t, 0.05);
     this.engFilter.frequency.setTargetAtTime(350 + throttle * 900 + rpm * 700, t, 0.08);
-    this.engGain.gain.setTargetAtTime(active ? 0.1 + throttle * 0.07 : 0, t, 0.1);
+    this.engGain.gain.setTargetAtTime(active && !foot ? 0.1 + throttle * 0.07 : 0, t, 0.1);
     this.skidGain.gain.setTargetAtTime(active ? Math.min(0.16, drift * 0.02) : 0, t, 0.05);
     this.sirenGain.gain.setTargetAtTime(active ? Math.min(0.09, siren) : 0, t, 0.2);
     if (this.sirenPan) this.sirenPan.pan.setTargetAtTime(Math.max(-0.8, Math.min(0.8, sirenPan)), t, 0.2);
@@ -181,6 +181,17 @@ export class GameAudio {
     this.tone('sine', 70, 28, 1.0, 0.6);
   }
   nearMiss() { this.tone('sine', 1200, 1800, 0.12, 0.06); }
+  gunshot(kind = 'pistol', dist = 0) {
+    if (!this.ctx) return;
+    const k = Math.max(0.1, 1 - dist / 120);
+    if (kind === 'mg' || kind === 'smg') { this.noiseHit(2400, 0.07, 0.22 * k, 'highpass'); this.tone('square', 180, 90, 0.05, 0.08 * k); return; }
+    this.noiseHit(1800, 0.12, 0.4 * k, 'bandpass');
+    this.noiseHit(500, 0.18, 0.25 * k);
+    this.tone('sine', 160, 60, 0.12, 0.2 * k);
+  }
+  doorSlam() { this.noiseHit(400, 0.1, 0.35); this.tone('sine', 110, 70, 0.1, 0.25); }
+  jump() { this.noiseHit(700, 0.06, 0.08); }
+  splash() { this.noiseHit(1200, 0.5, 0.25, 'bandpass'); this.noiseHit(400, 0.4, 0.2); }
   thud() { this.noiseHit(300, 0.15, 0.35); this.tone('sine', 140, 60, 0.15, 0.25); }
   alarm(on) {
     if (!this.ctx) return;
@@ -205,6 +216,78 @@ export class GameAudio {
   missile() { this.noiseHit(900, 0.9, 0.3, 'bandpass'); this.tone('sawtooth', 200, 900, 0.6, 0.08); }
   cannon(dist = 0) { const k = Math.max(0.15, 1 - dist / 200); this.noiseHit(250, 0.9, 0.9 * k); this.tone('sine', 90, 30, 0.6, 0.6 * k); }
   bombWhistle() { this.tone('sine', 1800, 350, 1.7, 0.07); }
+  // ------------------------------------------------------------ human sounds
+  footstep(vol = 0.08, surface = 'hard') {
+    if (!this.ctx) return;
+    this.noiseHit(surface === 'water' ? 900 : 1600 + Math.random() * 600, 0.05, vol, surface === 'water' ? 'bandpass' : 'lowpass');
+    this.tone('sine', 90 + Math.random() * 20, 60, 0.05, vol * 0.8);
+  }
+  breath(vol = 0.05) {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const n = this.noiseSource(false);
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900 + Math.random() * 300; f.Q.value = 1.2;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.12); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+    n.connect(f).connect(g).connect(this.sfx); n.start(t, Math.random()); n.stop(t + 0.5);
+  }
+  // Synthesised "aah!" scream: a glottal sawtooth through two vowel formants.
+  scream(dist = 0) {
+    if (!this.ctx || (this.screamT || 0) > this.ctx.currentTime) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    this.screamT = t + 0.6;
+    const k = Math.max(0.05, 1 - dist / 60) * 0.12;
+    const o = ctx.createOscillator(); o.type = 'sawtooth';
+    const f0 = 380 + Math.random() * 260;
+    o.frequency.setValueAtTime(f0, t); o.frequency.linearRampToValueAtTime(f0 * 1.25, t + 0.12); o.frequency.exponentialRampToValueAtTime(f0 * 0.7, t + 0.7);
+    const vib = ctx.createOscillator(); vib.frequency.value = 7; const vg = ctx.createGain(); vg.gain.value = 18; vib.connect(vg).connect(o.frequency);
+    const out = ctx.createGain(); out.gain.setValueAtTime(0.0001, t); out.gain.linearRampToValueAtTime(k, t + 0.05); out.gain.exponentialRampToValueAtTime(0.0001, t + 0.75);
+    for (const [fr, q, amp] of [[850, 6, 1], [1250, 8, 0.7], [2800, 10, 0.3]]) {
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = fr; bp.Q.value = q;
+      const ga = ctx.createGain(); ga.gain.value = amp;
+      o.connect(bp).connect(ga).connect(out);
+    }
+    out.connect(this.sfx);
+    o.start(t); vib.start(t); o.stop(t + 0.8); vib.stop(t + 0.8);
+  }
+  // Police shouting: real speech when the browser has voices, radio squelch otherwise.
+  shout(line, dist = 0) {
+    if (!this.ctx || this.muted || (this.shoutT || 0) > this.ctx.currentTime) return;
+    this.shoutT = this.ctx.currentTime + 4;
+    const synth = window.speechSynthesis;
+    const voices = synth?.getVoices?.() || [];
+    if (synth && voices.length) {
+      const u = new SpeechSynthesisUtterance(line);
+      u.voice = voices.find((v) => /en[-_](US|GB)/i.test(v.lang) && /male|david|daniel|alex|fred/i.test(v.name)) || voices.find((v) => /^en/i.test(v.lang)) || voices[0];
+      u.rate = 1.15; u.pitch = 0.75; u.volume = Math.max(0.15, 1 - dist / 50) * 0.9;
+      synth.cancel(); synth.speak(u);
+    } else this.radio(0.6);
+  }
+  radio(vol = 0.4) {
+    if (!this.ctx) return;
+    this.tone('square', 1800, 1800, 0.04, 0.03 * vol);
+    for (let i = 0; i < 4 + Math.floor(Math.random() * 4); i++) this.noiseHit(1400 + Math.random() * 900, 0.08 + Math.random() * 0.1, 0.05 * vol, 'bandpass', 0.06 + i * 0.13);
+    this.tone('square', 1500, 1500, 0.05, 0.03 * vol, 0.7);
+  }
+  horn(dist = 0) {
+    if (!this.ctx) return;
+    const k = Math.max(0.05, 1 - dist / 80) * 0.05;
+    this.tone('square', 415, 415, 0.35, k); this.tone('square', 330, 330, 0.35, k);
+  }
+  setCrowd(level) {
+    if (!this.ctx) return;
+    if (!this.crowdGain) {
+      const ctx = this.ctx;
+      const n = this.noiseSource();
+      const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 700; f.Q.value = 0.9;
+      const mod = ctx.createGain(); mod.gain.value = 0.6;
+      const lfo = ctx.createOscillator(); lfo.frequency.value = 3.1; const lg = ctx.createGain(); lg.gain.value = 0.35; lfo.connect(lg).connect(mod.gain); lfo.start();
+      this.crowdGain = ctx.createGain(); this.crowdGain.gain.value = 0;
+      n.connect(f).connect(mod).connect(this.crowdGain).connect(this.sfx); n.start();
+    }
+    this.crowdGain.gain.setTargetAtTime(Math.min(0.05, level * 0.004), this.ctx.currentTime, 0.8);
+  }
+
   click() { this.tone('square', 1500, 1500, 0.03, 0.05); }
   emp() { this.tone('sawtooth', 1600, 60, 0.8, 0.2); this.noiseHit(800, 0.8, 0.2, 'bandpass'); }
   spikes() { this.noiseHit(3000, 0.5, 0.3, 'highpass'); this.tone('sawtooth', 200, 60, 0.5, 0.15); }

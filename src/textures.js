@@ -217,3 +217,52 @@ export function signTexture(text, fg, bg) {
   ctx.fillText(text, 128, 34);
   return toTexture(c, { repeat: false });
 }
+
+// Normal + roughness maps for asphalt: fine grain, cracks and patch edges.
+// With puddles=true, dark smooth patches make wet reflective spots (rainy night).
+export function asphaltDetailMaps(seed = 5, puddles = false) {
+  const rng = mulberry32(seed);
+  const S = 256;
+  const h = new Float32Array(S * S);
+  for (let i = 0; i < h.length; i++) h[i] = rng();
+  // blur once for a softer grain
+  const hb = new Float32Array(S * S);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    let a = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) a += h[((y + dy + S) % S) * S + ((x + dx + S) % S)];
+    hb[y * S + x] = a / 9;
+  }
+  const [nc, nctx] = canvas(S);
+  const nimg = nctx.createImageData(S, S);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const hx = hb[y * S + ((x + 1) % S)] - hb[y * S + ((x - 1 + S) % S)];
+    const hy = hb[((y + 1) % S) * S + x] - hb[((y - 1 + S) % S) * S + x];
+    const nx = -hx * 3, ny = -hy * 3, nz = 1;
+    const l = Math.hypot(nx, ny, nz);
+    const i = (y * S + x) * 4;
+    nimg.data[i] = (nx / l * 0.5 + 0.5) * 255; nimg.data[i + 1] = (ny / l * 0.5 + 0.5) * 255; nimg.data[i + 2] = (nz / l * 0.5 + 0.5) * 255; nimg.data[i + 3] = 255;
+  }
+  nctx.putImageData(nimg, 0, 0);
+  const [rc2, rctx] = canvas(S);
+  const rimg = rctx.createImageData(S, S);
+  for (let i = 0; i < S * S; i++) {
+    const v = (0.82 + (hb[i] - 0.5) * 0.3) * 255;
+    rimg.data[i * 4] = v; rimg.data[i * 4 + 1] = v; rimg.data[i * 4 + 2] = v; rimg.data[i * 4 + 3] = 255;
+  }
+  rctx.putImageData(rimg, 0, 0);
+  if (puddles) {
+    for (let k = 0; k < 7; k++) {
+      const g = rctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+      g.addColorStop(0, 'rgba(10,10,10,0.95)'); g.addColorStop(0.7, 'rgba(20,20,20,0.8)'); g.addColorStop(1, 'rgba(20,20,20,0)');
+      rctx.save();
+      rctx.translate(rng() * S, rng() * S);
+      rctx.scale(18 + rng() * 30, 10 + rng() * 18);
+      rctx.fillStyle = g;
+      rctx.beginPath(); rctx.arc(0, 0, 1, 0, Math.PI * 2); rctx.fill();
+      rctx.restore();
+    }
+  }
+  const normal = toTexture(nc, { srgb: false });
+  const rough = toTexture(rc2, { srgb: false });
+  return { normal, rough };
+}

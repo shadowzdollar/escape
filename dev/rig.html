@@ -1,0 +1,22 @@
+<!doctype html><html><body style="margin:0;background:#8aa"><script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+const l = new GLTFLoader(); l.setMeshoptDecoder(MeshoptDecoder);
+const g = await l.loadAsync('/models/people/business.glb');
+const box = new THREE.Box3().setFromObject(g.scene);
+const info = { size: box.getSize(new THREE.Vector3()).toArray().map(v=>+v.toFixed(3)), min: box.min.toArray().map(v=>+v.toFixed(2)), anims: g.animations.map(a=>a.name+':'+a.duration.toFixed(2)) };
+const meshes=[]; g.scene.traverse(o=>{ if(o.isMesh) meshes.push(o.name+(o.isSkinnedMesh?'(skinned)':'')+' v='+o.geometry.attributes.position.count+' vis='+o.visible); });
+info.meshes=meshes;
+const bones=[]; g.scene.traverse(o=>{ if(o.isBone) bones.push(o.name); }); info.bones=bones.join(',');
+// facing: compare head vs toes? use hand bones: find 'Head' and 'Toe' / nose? print a few bone world positions
+g.scene.updateMatrixWorld(true);
+const pos = (n)=>{ let r=null; g.scene.traverse(o=>{ if(o.name===n) r=o.getWorldPosition(new THREE.Vector3()).toArray().map(v=>+v.toFixed(2)); }); return r; };
+info.bonePos = { Head: pos('Head'), FootL: pos('FootL')||pos('Foot.L')||pos('LeftFoot'), ToesL: pos('ToesL')||pos('Toes.L') };
+window.__info = info;
+const r = new THREE.WebGLRenderer(); r.setSize(600,600); document.body.appendChild(r.domElement);
+const s = new THREE.Scene(); s.add(new THREE.HemisphereLight(0xffffff,0x444444,3)); s.add(g.scene);
+const cam = new THREE.PerspectiveCamera(40,1,0.01,100); const h=info.size[1]; cam.position.set(h*1.2,h*0.7,h*2.2); cam.lookAt(0,h/2,0);
+const mixer = new THREE.AnimationMixer(g.scene); mixer.clipAction(g.animations.find(a=>a.name==='Walk')).play(); mixer.update(0.3);
+r.render(s,cam); window.__done=true;
+</script></body></html>

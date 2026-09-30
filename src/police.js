@@ -50,7 +50,7 @@ export class Police {
     });
     v.copType = type;
     v.place(x, z, heading);
-    v.ai = { path: [], repath: 0, stuck: 0, reverseT: 0, los: false, mode: 'chase', phase: Math.random() * 6, wreckT: 0 };
+    v.ai = { path: [], repath: 0, stuck: 0, reverseT: 0, los: false, mode: 'chase', phase: Math.random() * 6, wreckT: 0, flank: Math.random() < 0.35 };
     this.game.scene.add(v.root);
     this.game.vehicles.add(v);
     v.car.beam.visible = this.game.isNight;
@@ -131,7 +131,8 @@ export class Police {
 
   // ------------------------------------------------------------ AI
   think(cop, dt) {
-    const g = this.game, p = g.player, city = g.city, ai = cop.ai, inp = cop.input;
+    const g = this.game, city = g.city, ai = cop.ai, inp = cop.input;
+    const p = this.blind && this.lastKnown ? this.lastKnown : g.player; // searching vs tracking
     inp.nitro = false;
     if (ai.mode === 'script') return; // driven by the cinematic
     if (!cop.alive) { inp.throttle = 0; inp.brake = 1; inp.steer = 0; inp.handbrake = false; return; }
@@ -141,6 +142,17 @@ export class Police {
     if (ai.mode === 'block') {
       inp.throttle = 0; inp.brake = 1; inp.hold = true; inp.steer = 0;
       if (dist < 24 || this.time > (ai.blockUntil ??= this.time + 40)) { ai.mode = 'chase'; inp.hold = false; }
+      return;
+    }
+    if (ai.mode === 'deployed') {
+      // officers are out on foot; wait, and pick them back up if the player drives off
+      inp.throttle = 0; inp.brake = 1; inp.hold = true; inp.steer = 0; inp.handbrake = false;
+      const officersLeft = (cop.officers || []).filter((o) => !o.dead && g.people.list.includes(o));
+      if ((p.kind !== 'avatar' && dist > 40) || !officersLeft.length && dist > 25) {
+        for (const o of officersLeft) { g.people.detach(o); g.people.list.splice(g.people.list.indexOf(o), 1); }
+        cop.officers = [];
+        ai.mode = 'chase'; inp.hold = false;
+      }
       return;
     }
     if (ai.mode === 'fort') {
@@ -155,7 +167,8 @@ export class Police {
     // rubber band: faster when far behind, a touch slower when right on top
     cop.speedMul = dist > 160 ? 1.2 : dist > 90 ? 1.08 : 1.0;
 
-    const lead = clamp(dist / 32, 0, 1.3);
+    // flankers aim well ahead of you (to cut you off); the rest chase your tail
+    const lead = ai.flank && dist > 45 ? 3.2 : clamp(dist / 32, 0, 1.3);
     const tx = p.x + p.vx * lead, tz = p.z + p.vz * lead;
 
     ai.repath -= dt;
@@ -252,7 +265,7 @@ export class Police {
     this.time += dt;
     const W = WANTED[this.level];
 
-    if (g.state === 'playing') {
+    if (g.state === 'playing' && !this.suppress) {
       this.spawnTimer -= dt;
       const active = this.cops.filter((c) => c.alive).length;
       if (this.spawnTimer <= 0 && active < W.maxCops) {
@@ -266,9 +279,20 @@ export class Police {
           this.roadblockTimer = 16 + Math.random() * 10;
         }
       }
-      if (W.heli && !this.heli) this.spawnHeli();
+      if (W.heli && !this.heli && this.time - (this.heliDown ?? -99) > 25) this.spawnHeli();
     }
 
+    // a player on foot: nearby slow cop cars stop and send officers after them
+    if (g.state === 'playing' && p.kind === 'avatar') {
+      let officers = 0;
+      for (const o of g.people.list) if (o.copFoot && !o.dead) officers++;
+      for (const c of this.cops) {
+        if (officers >= 10) break;
+        if (!c.alive || c.copType === 'tank' || c.ai.mode !== 'chase' || c.disabledTimer > 0) continue;
+        const d = Math.hypot(c.x - p.x, c.z - p.z);
+        if (d < 30 && c.speed < 9) { this.deployOfficers(c); officers += c.officers.length; }
+      }
+    }
     for (let k = this.cops.length - 1; k >= 0; k--) {
       const c = this.cops[k];
       this.think(c, dt);
@@ -305,6 +329,26 @@ export class Police {
     }
 
     if (this.heli) this.updateHeli(dt);
+  }
+
+  deployOfficers(cop) {
+    const g = this.game;
+    const n = cop.copType === 'swat' ? 3 : 2;
+    cop.officers = [];
+    cop.ai.mode = 'deployed';
+    const s = Math.sin(cop.heading), c = Math.cos(cop.heading);
+    for (let i = 0; i < n; i++) {
+      const side = i % 2 ? 1 : -1;
+      const x = cop.x + c * side * (cop.W / 2 + 0.7) + s * (i > 1 ? -1.5 : 0.4);
+      const z = cop.z - s * side * (cop.W / 2 + 0.7) + c * (i > 1 ? -1.5 : 0.4);
+      const o = g.people.make(x, z, {
+        mode: 'copFoot', copFoot: true, armed: true, rigKind: 'swat', hp: cop.copType === 'swat' ? 60 : 40,
+        heading: cop.heading, shootCool: 0.8 + Math.random(), walk: 0, height: 1.78 + Math.random() * 0.1,
+      });
+      cop.officers.push(o);
+    }
+    g.audio.doorSlam?.();
+    g.onOfficersDeployed?.(cop);
   }
 
   nearestCopDistance() {
@@ -373,7 +417,7 @@ export class Police {
     g.scene.add(grp, cone, pool);
     const p = g.player;
     this.heli = {
-      group: grp, rotor, tail, cone, pool, beacon,
+      group: grp, rotor, tail, cone, pool, beacon, hp: 140,
       x: p.x - 150, z: p.z - 150, y: 30, vx: 0, vz: 0, heading: 0, t: 0,
       dispose: () => { g.scene.remove(cone, pool); },
     };
@@ -382,7 +426,11 @@ export class Police {
   }
 
   updateHeli(dt) {
-    const h = this.heli, p = this.game.player;
+    const h = this.heli, p = this.blind && this.lastKnown ? this.lastKnown : this.game.player;
+    if (h.falling) {
+      if (this.game.military.updateFalling(h, dt)) { this.game.scene.remove(h.group, h.cone, h.pool); this.heli = null; this.heliDown = this.time; }
+      return;
+    }
     h.t += dt;
     // orbit slightly ahead of the player
     const ox = Math.cos(h.t * 0.35) * 14, oz = Math.sin(h.t * 0.35) * 14;

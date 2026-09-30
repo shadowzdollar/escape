@@ -96,6 +96,12 @@ export class Minimap {
       ctx.strokeStyle = '#ff5d5d'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.stroke();
     }
+    for (const o of game.people.list) {
+      if (!o.copFoot || o.dead) continue;
+      const [x, y] = toMap(o.x, o.z);
+      ctx.fillStyle = '#6ea8ff';
+      ctx.fillRect(x - 1.5, y - 1.5, 3, 3);
+    }
     for (const gs of game.military?.gunships || []) {
       const [x, y] = toMap(gs.x, gs.z);
       ctx.fillStyle = '#ff9f1c';
@@ -105,6 +111,14 @@ export class Minimap {
       const [x, y] = toMap(pr.mesh.position.x, pr.mesh.position.z);
       ctx.fillStyle = '#ff3030';
       ctx.fillRect(x - 2, y - 2, 4, 4);
+    }
+    for (const m of game.mission?.markers || []) {
+      let [x, y] = toMap(m.x, m.z);
+      const r = Math.hypot(x, y), R = W / 2 - 10;
+      if (r > R) { x *= R / r; y *= R / r; }
+      ctx.fillStyle = m.kind === 'cash' ? '#ffd23c' : '#3cff7a';
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     }
     // player arrow
     ctx.rotate(-rotate);

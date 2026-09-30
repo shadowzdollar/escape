@@ -47,6 +47,20 @@ export const CARS = [
     tagline: 'Electric hypercar from the future. Neon included.',
     stats: { speed: 60, accel: 40, handling: 3.6, grip: 9.0, hp: 160, mass: 1.35 },
   },
+
+  // ---- real-world inspired (fictional names)
+  { id: 'minima', name: 'MINIMA', model: 'minima', price: 1200, color: '#0f5132', accent: '#f2f2f2', tagline: 'Tiny British icon. Darts through traffic.', stats: { speed: 38, accel: 25, handling: 3.5, grip: 7.8, hp: 95, mass: 0.9 } },
+  { id: 'buggle', name: 'BUGGLE', model: 'buggle', price: 1500, color: '#6ec1e4', tagline: 'The round little people-mover everyone loves.', stats: { speed: 36, accel: 20, handling: 3.2, grip: 7.2, hp: 110, mass: 0.95 } },
+  { id: 'hippie', name: 'HIPPIE BUS', model: 'hippie', price: 2500, color: '#f5f0e6', accent: '#e07a5f', tagline: 'Peace, love and surprisingly thick steel.', stats: { speed: 34, accel: 18, handling: 2.3, grip: 6.8, hp: 200, mass: 1.8 } },
+  { id: 'stallion', name: 'STALLION 67', model: 'stallion', price: 4000, color: '#1e40af', accent: '#ffffff', tagline: 'Classic fastback pony car. Pure V8 thunder.', stats: { speed: 46, accel: 29, handling: 2.7, grip: 6.4, hp: 165, mass: 1.5 } },
+  { id: 'eldorado', name: 'ELDORADO 59', model: 'eldorado', price: 5500, color: '#ff9ec7', accent: '#f5f5f5', tagline: 'Chrome, fins and a sofa for a seat.', stats: { speed: 44, accel: 24, handling: 2.4, grip: 6.5, hp: 190, mass: 1.8 } },
+  { id: 'stutt', name: 'STUTT 9', model: 'stutt', price: 6500, color: '#c0c0c0', tagline: 'Rear-engined legend. Perfect on the limit.', stats: { speed: 52, accel: 33, handling: 3.5, grip: 8.8, hp: 130, mass: 1.2 } },
+  { id: 'gelande', name: 'GELANDE G', model: 'gelande', price: 7000, color: '#1b1b1b', tagline: 'Boxy luxury off-roader. Built like a vault.', stats: { speed: 45, accel: 27, handling: 2.6, grip: 7.5, hp: 260, mass: 2.2 } },
+  { id: 'raptor', name: 'RAPTOR TR', model: 'raptor', price: 8000, color: '#8a8d91', tagline: 'Desert-racing super truck. Jumps curbs for fun.', stats: { speed: 47, accel: 28, handling: 2.6, grip: 7.4, hp: 280, mass: 2.3 } },
+  { id: 'rosso', name: 'ROSSO F8', model: 'rosso', price: 9000, color: '#d40000', tagline: 'Italian V8 berlinetta. Screams to redline.', stats: { speed: 56, accel: 36, handling: 3.5, grip: 8.8, hp: 135, mass: 1.25 } },
+  { id: 'velox', name: 'VELOX MX', model: 'velox', price: 11000, color: '#ff7a00', tagline: 'Carbon-tub British hypercar.', stats: { speed: 58, accel: 38, handling: 3.6, grip: 9.0, hp: 135, mass: 1.25 } },
+  { id: 'toro', name: 'TORO V12', model: 'toro', price: 12000, color: '#9acd32', tagline: 'Angular Italian V12 wedge. Loud in every way.', stats: { speed: 60, accel: 39, handling: 3.5, grip: 8.9, hp: 145, mass: 1.3 } },
+  { id: 'veyra', name: 'VEYRA', model: 'veyra', price: 20000, color: '#1e3a8a', accent: '#0b0f1a', tagline: 'Sixteen cylinders. The fastest thing on wheels.', stats: { speed: 66, accel: 42, handling: 3.5, grip: 9.2, hp: 170, mass: 1.4 } },
 ];
 
 export const PAINTS = [
@@ -66,6 +80,10 @@ export const MAPS = [
   {
     id: 'desert', name: 'DUST VALLEY', desc: 'Sun-baked desert town at golden hour.', seed: 777,
     theme: 'desert', time: 'dusk', grip: 0.95,
+  },
+  {
+    id: 'giza', name: 'GIZA', desc: 'Sandstone streets on the Nile, beside the pyramids.', seed: 3141,
+    theme: 'egypt', time: 'hot', grip: 0.95,
   },
   {
     id: 'snow', name: 'FROSTBITE', desc: 'Icy roads. Every turn is a drift.', seed: 9001,
@@ -103,6 +121,8 @@ export const POWERUPS = {
   shield: { label: 'SHIELD', color: '#ffd000', icon: 'S' },
   emp: { label: 'EMP', color: '#b44dff', icon: 'E' },
   magnet: { label: 'MAGNET', color: '#ff4d6d', icon: 'M' },
+  guns: { label: 'MACHINE GUNS', color: '#ff9f1c', icon: 'G' },
+  rockets: { label: 'ROCKETS', color: '#e63946', icon: 'R' },
 };
 
 export const COIN_VALUE = 5;

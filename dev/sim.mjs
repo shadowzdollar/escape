@@ -6,7 +6,7 @@ const page = await browser.newPage({ viewport: { width: +w, height: +h } });
 const logs = [];
 page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') logs.push(`[${m.type()}] ${m.text()}`); });
 page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}\n${e.stack}`));
-await page.goto('http://localhost:5173/', { waitUntil: 'domcontentloaded', timeout: 90000 });
+await page.goto('http://localhost:5174/', { waitUntil: 'domcontentloaded', timeout: 90000 });
 await page.waitForFunction(() => window.game && window.game.state === 'menu', null, { timeout: 90000 });
 if (map !== 'city') {
   await page.evaluate((m) => window.game.selectMap(m), map);

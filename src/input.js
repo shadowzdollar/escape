@@ -11,8 +11,14 @@ export class Input {
       this.keys.add(e.code);
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
-    window.addEventListener('blur', () => this.keys.clear());
+    window.addEventListener('blur', () => { this.keys.clear(); this.mouseDown = false; });
     this.gpPrev = {};
+    // mouse: aim point on screen + left button to shoot (on foot)
+    this.mouse = { x: 0, y: 0, t: -99 };
+    this.mouseDown = false;
+    window.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') { this.mouse.x = e.clientX; this.mouse.y = e.clientY; this.mouse.t = performance.now(); } });
+    window.addEventListener('mousedown', (e) => { if (e.button === 0 && e.target.tagName === 'CANVAS') { this.mouseDown = true; this.mouse.t = performance.now(); } });
+    window.addEventListener('mouseup', (e) => { if (e.button === 0) this.mouseDown = false; });
   }
 
   bindTouch(root) {
@@ -28,6 +34,42 @@ export class Input {
   }
 
   wasPressed(code) { return this.pressed.has(code); }
+
+  // On-foot controls. fwd = unit (x,z) of "screen up" in world space.
+  // Returns world-space move vector, sprint/jump/fire, and an optional manual aim yaw.
+  readFoot(fwd) {
+    const k = this.keys;
+    let f = 0, r = 0;
+    if (k.has('KeyW') || k.has('ArrowUp')) f += 1;
+    if (k.has('KeyS') || k.has('ArrowDown')) f -= 1;
+    if (k.has('KeyD') || k.has('ArrowRight')) r += 1;
+    if (k.has('KeyA') || k.has('ArrowLeft')) r -= 1;
+    const t = this.touch;
+    if (t.gas) f += 1; if (t.brake) f -= 1; if (t.right) r += 1; if (t.left) r -= 1;
+    let sprint = k.has('ShiftLeft') || k.has('ShiftRight') || t.nitro;
+    let jump = this.pressed.has('Space') || (t.drift && !this.prevDrift);
+    this.prevDrift = t.drift;
+    let fire = this.mouseDown || k.has('KeyJ') || k.has('ControlLeft');
+    let aimYaw = null, manual = false;
+    const j = this.joy;
+    if (j && j.active) {
+      const lx = j.axis('lx') * (j.invert.steer ? -1 : 1), ly = -j.axis('ly') * (j.invert.throttle ? -1 : 1);
+      if (Math.abs(lx) > Math.abs(r)) r = lx;
+      if (Math.abs(ly) > Math.abs(f)) f = ly;
+      if (Math.hypot(lx, ly) > 0.92) sprint = true; // full stick = sprint
+      if (j.events.has('L')) jump = true;
+      // right stick = twin-stick aim + fire
+      const rx = j.axis('rx') * (j.invert.steer ? -1 : 1), ry = -j.axis('ry') * (j.invert.throttle ? -1 : 1);
+      if (Math.hypot(rx, ry) > 0.5) {
+        const ax = fwd.x * ry + -fwd.z * rx, az = fwd.z * ry + fwd.x * rx;
+        aimYaw = Math.atan2(ax, az); manual = true; fire = true;
+      }
+    }
+    const mx = fwd.x * f + -fwd.z * r, mz = fwd.z * f + fwd.x * r;
+    return { mx, mz, sprint, jump, fire, aimYaw, manual };
+  }
+
+  mouseActive() { return performance.now() - this.mouse.t < 2500; }
   endFrame() { this.pressed.clear(); }
 
   read() {

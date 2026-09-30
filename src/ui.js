@@ -1,13 +1,16 @@
 // DOM UI: screens, garage, map select, settings, HUD and notifications.
 import { CARS, MAPS, PAINTS, POWERUPS, COIN_VALUE, WANTED } from './config.js';
+import { MISSIONS, TROPHIES } from './campaign.js';
 import { formatTime } from './utils.js';
+import { Vector3 as THREE_VEC } from 'three';
+const WEAPON_NAMES = { pistol: 'PISTOL', smg: 'SMG', rpg: 'ROCKETS' };
 
 const $ = (s) => document.querySelector(s);
 
 export class UI {
   constructor(game) {
     this.game = game;
-    this.screens = ['loading', 'menu', 'garage', 'maps', 'settings', 'hud', 'pause', 'gameover'];
+    this.screens = ['loading', 'menu', 'modes', 'story', 'trophies', 'garage', 'maps', 'settings', 'hud', 'pause', 'gameover', 'win'];
     this.garageIndex = 0;
     this.comboTimer = 0;
     this.h = {
@@ -54,7 +57,7 @@ export class UI {
     const top = [...this.current].reverse().find((n) => n !== 'hud' && n !== 'loading');
     if (!top) return [];
     const root = document.getElementById(top);
-    return [...root.querySelectorAll('.btn, .map-card, .seg button, .paints button')]
+    return [...root.querySelectorAll('.btn, .map-card, .mode-card, .mission:not(.locked), .seg button, .paints button')]
       .filter((el) => el.offsetParent !== null && !el.classList.contains('disabled') && !el.classList.contains('pause-btn'));
   }
 
@@ -110,7 +113,12 @@ export class UI {
   action(a) {
     const g = this.game;
     switch (a) {
-      case 'play': g.startRun({ intro: g.save.settings.intro !== false }); break;
+      case 'play': this.openModes(); break;
+      case 'modes': this.openModes(); break;
+      case 'endless': g.startRun({ intro: g.save.settings.intro !== false }); break;
+      case 'story': if (g.state !== 'menu') g.toMenu(); this.openStory(); break;
+      case 'trophies': this.openTrophies(); break;
+      case 'next-mission': { const n = this.nextMission; if (n) g.startMission(n.id); break; }
       case 'garage': this.openGarage(); break;
       case 'garage-from-over': g.toMenu(); this.openGarage(); break;
       case 'maps': this.openMaps(); break;
@@ -120,10 +128,84 @@ export class UI {
       case 'next-car': this.garageIndex = (this.garageIndex + 1) % CARS.length; this.renderGarage(); break;
       case 'pause': g.pause(); break;
       case 'resume': g.resume(); break;
-      case 'restart': g.startRun(); break;
+      case 'restart': if (g.lastMission) g.startMission(g.lastMission.id); else g.startRun(); break;
       case 'quit': g.toMenu(); break;
       case 'joy-connect': g.joy.requestConnect(); break;
     }
+  }
+
+  openModes() {
+    const camp = this.game.save.campaign || { unlocked: 1, stars: {} };
+    const done = Object.keys(camp.stars).length;
+    $('#story-progress').textContent = `${done}/${MISSIONS.length} COMPLETE · ${Object.values(camp.stars).reduce((a, b) => a + b, 0)}/${MISSIONS.length * 3} ★`;
+    this.show('modes');
+  }
+
+  openStory() {
+    const g = this.game, camp = g.save.campaign || { unlocked: 1, stars: {} };
+    $('#mission-list').innerHTML = MISSIONS.map((m, i) => {
+      const locked = i + 1 > camp.unlocked;
+      const st = camp.stars[m.id] || 0;
+      const map = MAPS.find((x) => x.id === m.map);
+      return `<div class="mission ${locked ? 'locked' : ''}" data-mission="${m.id}">
+        <div class="num">${locked ? '🔒' : i + 1}</div>
+        <div><h4>${m.name}</h4><p>${locked ? 'Beat the previous mission to unlock.' : m.brief}</p></div>
+        <div class="meta"><b>${'★'.repeat(st)}${'☆'.repeat(3 - st)}</b>${map ? map.name : m.map} · <span class="diff">${'●'.repeat(m.difficulty)}</span><br><span class="coin-ico"></span> ${m.reward.toLocaleString()}</div>
+      </div>`;
+    }).join('');
+    $('#mission-list').onclick = (e) => {
+      const el = e.target.closest('[data-mission]');
+      if (!el || el.classList.contains('locked')) return;
+      g.audio.init(); g.audio.click();
+      g.startMission(el.dataset.mission);
+    };
+    this.show('story');
+  }
+
+  openTrophies() {
+    const got = this.game.save.trophies || {};
+    $('#trophy-grid').innerHTML = TROPHIES.map((t) => `<div class="trophy ${got[t.id] ? 'got' : ''}"><div class="ico">🏆</div><div><b>${t.name}</b><span>${t.desc}</span></div></div>`).join('');
+    $('#trophy-count').textContent = `${Object.keys(got).length}/${TROPHIES.length}`;
+    this.show('trophies');
+  }
+
+  showMissionWin(r) {
+    $('#win-name').textContent = r.def.name;
+    $('#win-stars').innerHTML = [1, 2, 3].map((i) => `<i class="${i <= r.stars ? 'on' : ''}">★</i>`).join('');
+    $('#win-stats').innerHTML = `<span>Time</span><b>${formatTime(r.time)}</b><span>Par</span><b>${formatTime(r.def.par)}</b><span>Score</span><b>${Math.floor(this.game.score).toLocaleString()}</b>`;
+    $('#win-coins').textContent = r.reward.toLocaleString();
+    const u = $('#win-unlock');
+    u.textContent = r.unlocked ? `NEW CAR UNLOCKED: ${r.unlocked}` : r.next ? `UNLOCKED: ${r.next.name}` : 'STORY COMPLETE!';
+    this.nextMission = r.next;
+    $('#win-next').style.display = r.next ? '' : 'none';
+    this.show('win');
+  }
+
+  // objective panel + off-screen arrow toward the mission marker
+  updateMissionHUD() {
+    const g = this.game, m = g.mission;
+    const panel = this._obj || (this._obj = $('#h-obj'));
+    const arrow = this._arr || (this._arr = $('#h-arrow'));
+    if (!m || m.done) { panel.classList.remove('show'); arrow.classList.remove('show'); return; }
+    const st = m.status();
+    panel.classList.add('show');
+    $('#h-obj-step').textContent = `OBJECTIVE ${st.step}`;
+    $('#h-obj-clock').textContent = st.clock;
+    $('#h-obj-label').textContent = st.label;
+    $('#h-obj-prog').textContent = st.prog;
+    const t = m.target();
+    if (!t) { arrow.classList.remove('show'); return; }
+    const v = (this._v2 ||= new THREE_VEC()).set(t.x, 2, t.z).project(g.camera);
+    const on = v.z < 1 && Math.abs(v.x) < 0.9 && Math.abs(v.y) < 0.85;
+    if (on) { arrow.classList.remove('show'); return; }
+    let ax = v.x, ay = v.y;
+    if (v.z >= 1) { ax = -ax; ay = -ay; }
+    const k = 0.86 / Math.max(Math.abs(ax), Math.abs(ay), 0.001);
+    ax *= k; ay *= k;
+    arrow.style.left = `${(ax * 0.5 + 0.5) * innerWidth}px`;
+    arrow.style.top = `${(-ay * 0.5 + 0.5) * innerHeight}px`;
+    arrow.style.transform = `rotate(${Math.atan2(-ay, ax)}rad)`;
+    arrow.classList.add('show');
   }
 
   showMenu() {
@@ -157,8 +239,8 @@ export class UI {
     $('#car-tag').textContent = car.tagline;
     const st = car.stats;
     const rows = [
-      ['SPEED', st.speed / 62, Math.round(st.speed * 3.6)],
-      ['ACCEL', st.accel / 42, st.accel],
+      ['SPEED', st.speed / 66, Math.round(st.speed * 3.6)],
+      ['ACCEL', st.accel / 43, st.accel],
       ['HANDLING', (st.handling - 2) / 1.7, st.handling.toFixed(1)],
       ['ARMOR', st.hp / 250, st.hp],
     ];
@@ -286,13 +368,49 @@ export class UI {
     }
   }
 
+  // on-foot / combat HUD: labels, weapon, target reticle, context hints
+  updateCombatHUD() {
+    const g = this.game, c = g.combat, foot = !g.car;
+    const el = (id) => this._c?.[id] || ((this._c ||= {})[id] = document.getElementById(id));
+    el('h-hp-label').textContent = foot ? 'HEALTH' : 'HULL';
+    el('h-nitro-label').textContent = foot ? 'STAMINA' : 'NITRO';
+    let w = '';
+    if (foot) {
+      const a = c.ammo[c.weapon];
+      w = `${WEAPON_NAMES[c.weapon]} <b>${a === Infinity ? '∞' : a}</b><small>${c.ammo.smg > 0 || c.ammo.rpg > 0 ? 'Q: SWITCH' : 'CLICK / J / RIGHT STICK: SHOOT'}</small>`;
+    } else {
+      if (c.carGuns > 0) w += `MACHINE GUNS <b>${Math.ceil(c.carGuns)}s</b><br>`;
+      if (c.carRockets > 0) w += `ROCKETS <b>${c.carRockets}</b>`;
+    }
+    if (w !== this._w) { el('h-weapon').innerHTML = w; this._w = w; }
+    // reticle over the current target
+    const r = el('reticle');
+    const t = c.target;
+    if (t && (foot || c.carGuns > 0 || c.carRockets > 0) && (t.kind === 'heli' ? !t.ref.falling : t.ref.alive !== false && !t.ref.dead)) {
+      const v = (this._v ||= new THREE_VEC()).set(t.ref.x, t.kind === 'heli' ? t.ref.y : (t.kind === 'cop' ? t.ref.y + 1 : 1), t.ref.z).project(g.camera);
+      if (v.z < 1) {
+        r.style.left = `${(v.x * 0.5 + 0.5) * innerWidth}px`; r.style.top = `${(-v.y * 0.5 + 0.5) * innerHeight}px`;
+        r.classList.add('show');
+      } else r.classList.remove('show');
+    } else r.classList.remove('show');
+    // hints
+    let hint = '';
+    if (foot && g.avatar.state === 'foot') {
+      for (const v of g.vehicles) {
+        if (v.alive && !v.destroyed && v.speed < 4 && (!g.avatar.swimming || v.boat) && Math.hypot(v.x - g.avatar.x, v.z - g.avatar.z) - v.L / 2 < (v.boat ? 3.6 : 2.4)) { hint = v.boat ? 'F / RIGHT-STICK CLICK: TAKE THE BOAT' : 'F / RIGHT-STICK CLICK: GET IN'; break; }
+      }
+      if (g.avatar.swimming && !hint) hint = 'SWIMMING: HEAD FOR THE BANK';
+    }
+    if (hint !== this._hint) { el('h-hint').textContent = hint; el('h-hint').classList.toggle('show', !!hint); this._hint = hint; }
+  }
+
   setFps(v) { this.h.fps.textContent = v; }
 
   showGameOver(r) {
     const t = $('#go-title');
-    t.textContent = r.reason === 'wrecked' ? 'WRECKED' : 'BUSTED';
-    t.className = r.reason === 'wrecked' ? 'wrecked' : '';
-    $('#go-sub').textContent = r.reason === 'wrecked' ? 'Your ride is scrap metal.' : 'The cops boxed you in.';
+    t.textContent = r.mission ? 'MISSION FAILED' : r.reason === 'wrecked' ? 'WRECKED' : r.reason === 'down' ? 'WASTED' : r.reason === 'timeout' ? "TIME'S UP" : 'BUSTED';
+    t.className = r.reason === 'busted' ? '' : 'wrecked';
+    $('#go-sub').textContent = (r.mission ? r.mission.name + ': ' : '') + (r.reason === 'wrecked' ? 'Your ride is scrap metal.' : r.reason === 'down' ? 'Taken down on foot.' : r.reason === 'timeout' ? 'You ran out of time.' : 'The cops boxed you in.');
     $('#go-stats').innerHTML = `
       <span>Survived</span><b>${formatTime(r.time)}</b>
       <span>Score</span><b>${Math.floor(r.score).toLocaleString()}</b>

@@ -155,6 +155,11 @@ export class SerialJoystick {
     this.dir = { x: dx, y: dy };
     if (this.raw.lb && !this.prevBtn.lb) this.events.add('L');
     if (this.raw.rb && !this.prevBtn.rb) this.events.add('R');
+    // long-press right stick (~0.6 s) = get out of / into a vehicle
+    if (this.raw.rb && !this.raw.lb) {
+      this.rHeld = (this.rHeld || 0) + dt;
+      if (this.rHeld > 0.6 && this.rHeld - dt <= 0.6) this.events.add('RHOLD');
+    } else this.rHeld = 0;
     this.prevBtn = { lb: this.raw.lb, rb: this.raw.rb };
     // hold both clicks ~0.8 s = pause / resume
     if (this.raw.lb && this.raw.rb) {

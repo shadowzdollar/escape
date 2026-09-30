@@ -70,6 +70,20 @@ export const SPECS = {
 };
 SPECS.taxi = { ...SPECS.sedan, taxiSign: true, rim: 'steel' };
 
+// ---- real-world inspired line-up (fictional names)
+SPECS.toro = { ...SPECS.super, L: 4.8, W: 2.05, noseDz: 0.75, noseTop: 0.42, hoodY: 0.74, cowlZ: 0.55, roofY: 1.08, roofFZ: -0.2, roofRZ: -0.95, rwZ: -2.05, deckY: 0.9, tailTop: 0.9, spoiler: 'duck', head: 'slim', tail: 'bar', rim: 'aero', exhaust: 'center' };
+SPECS.rosso = { ...SPECS.sports, L: 4.6, noseDz: 0.5, noseTop: 0.55, roofY: 1.2, tail: 'round', spoiler: null, rim: 'five', exhaust: 'quad' };
+SPECS.stutt = { ...SPECS.hatch, L: 4.5, W: 1.85, wr: 0.36, ww: 0.27, fa: 1.35, ra: -1.35, yb: 0.28, noseBot: 0.3, noseTop: 0.62, noseDz: 0.45, hoodY: 0.86, cowlZ: 0.55, roofY: 1.3, roofFZ: -0.2, roofRZ: -0.75, rwZ: -2.05, deckY: 0.92, tailTop: 0.9, tailDz: 0.1, tailBot: 0.36, cabinW: 0.8, taper: 0.76, head: 'round', tail: 'bar', spoiler: 'duck', rim: 'five', fenders: true, calipers: true, exhaust: 'dual' };
+SPECS.velox = { ...SPECS.super, noseDz: 0.55, roofFZ: -0.05, roofRZ: -0.6, rwZ: -1.7, roofY: 1.15, cabinW: 0.68, taper: 0.62, spoiler: 'wing', rim: 'multi', tail: 'bar' };
+SPECS.veyra = { ...SPECS.hyper, noseDz: 0.5, noseTop: 0.48, roofY: 1.14, twoTone: 'lower', neon: false, spoiler: 'duck', rim: 'disc', tail: 'bar', head: 'slim' };
+SPECS.gelande = { ...SPECS.van, L: 4.7, W: 1.98, wr: 0.42, ww: 0.3, fa: 1.45, ra: -1.45, yb: 0.5, noseBot: 0.52, noseTop: 1.12, noseDz: 0.06, hoodY: 1.22, cowlZ: 0.95, roofY: 2.0, roofFZ: 0.7, roofRZ: -2.15, rwZ: -2.25, deckY: 1.2, tailTop: 1.2, tailDz: 0.02, tailBot: 0.55, cabinW: 0.95, taper: 0.96, head: 'round', tail: 'tall', rim: 'off', sideWinRear: -1.9, exhaust: 'dual' };
+SPECS.raptor = { ...SPECS.truck, L: 5.6, W: 2.2, wr: 0.54, noseTop: 1.35, hoodY: 1.5, roofY: 2.22, rollbar: false };
+SPECS.stallion = { ...SPECS.muscle, roofRZ: -1.25, rwZ: -2.1, stripes: true, chrome: true, spoiler: 'duck', rim: 'five', head: 'round', scoop: false };
+SPECS.buggle = { ...SPECS.hatch, L: 4.1, W: 1.7, wr: 0.36, ww: 0.22, fa: 1.2, ra: -1.2, yb: 0.36, noseBot: 0.4, noseTop: 0.8, noseDz: 0.55, hoodY: 0.95, cowlZ: 0.55, roofY: 1.5, roofFZ: 0.05, roofRZ: -0.75, rwZ: -1.7, deckY: 0.95, tailTop: 0.8, tailDz: 0.45, tailBot: 0.42, cabinW: 0.82, taper: 0.7, head: 'round', tail: 'round', chrome: true, fenders: true, rim: 'steel', spoiler: null, exhaust: 'dual' };
+SPECS.minima = { ...SPECS.hatch, L: 3.6, W: 1.68, wr: 0.3, ww: 0.2, fa: 1.2, ra: -1.2, noseDz: 0.12, noseTop: 0.78, hoodY: 0.92, cowlZ: 0.75, roofY: 1.42, roofFZ: 0.4, roofRZ: -1.55, rwZ: -1.72, twoTone: 'roof', head: 'round', tail: 'tall', chrome: true, spoiler: null, rim: 'five' };
+SPECS.hippie = { ...SPECS.van, L: 4.4, noseDz: 0.04, noseTop: 1.1, hoodY: 1.15, cowlZ: 2.0, roofFZ: 1.9, roofRZ: -2.0, rwZ: -2.1, roofY: 2.05, twoTone: 'lower', head: 'round', tail: 'round', chrome: true, rim: 'steel', sideWinRear: -1.6 };
+SPECS.eldorado = { ...SPECS.sedan, L: 5.6, W: 2.0, fa: 1.75, ra: -1.8, noseDz: 0.15, noseTop: 0.75, hoodY: 0.9, cowlZ: 0.8, roofY: 1.38, roofFZ: -0.2, roofRZ: -1.2, rwZ: -1.7, deckY: 0.95, tailTop: 0.95, tailDz: 0.1, fins: true, chrome: true, head: 'twin', tail: 'round', rim: 'steel', twoTone: 'roof', exhaust: 'dual' };
+
 // ---------------------------------------------------------------- geometry helpers
 
 function prep(geo, color = '#ffffff') {
@@ -380,6 +394,12 @@ function buildBody(modelId, livery) {
   const tx = s.W / 2 - 0.34;
   if (s.tail === 'bar') {
     B.tail.push(prep(box(s.W - 0.3, 0.06, 0.05, 0, tf.y, tf.z, tf.rx), '#ff1a1a'));
+  } else if (s.tail === 'round') {
+    for (const sx of [-1, 1]) for (const k of [0, 1]) {
+      const c = cyl(0.085, 0.085, 0.05, 12, 0, 0, 0, 'z'); c.rotateX(tf.rx);
+      c.translate(sx * (s.W / 2 - 0.22 - k * 0.24), tf.y, tf.z);
+      B.tail.push(prep(c, '#ff1a1a'));
+    }
   } else if (s.tail === 'tall') {
     for (const sx of [-1, 1]) B.tail.push(prep(box(0.2, 0.3, 0.05, sx * (s.W / 2 - 0.2), tf.y - 0.08, tf.z, tf.rx), '#ff1a1a'));
   } else {
@@ -475,6 +495,40 @@ function buildBody(modelId, livery) {
   if (s.taxiSign) {
     B.trim.push(prep(box(0.8, 0.06, 0.3, 0, s.roofY + 0.08, (s.roofFZ + s.roofRZ) / 2), '#111'));
     B.decal.push(prep(box(0.72, 0.2, 0.24, 0, s.roofY + 0.2, (s.roofFZ + s.roofRZ) / 2)));
+  }
+
+  // ---- classic details: chrome bumpers, tail fins, two-tone paint
+  if (s.chrome) {
+    B.trim.push(prep(box(s.W - 0.05, 0.13, 0.14, 0, s.noseBot + 0.14, zF + 0.04), '#e8eaec'));
+    B.trim.push(prep(box(s.W - 0.05, 0.13, 0.14, 0, s.tailBot + 0.12, zR - 0.04), '#e8eaec'));
+    const gf2 = onFace(frontA, frontB, 0.62, 1);
+    B.trim.push(prep(box(s.W - 1.0, 0.16, 0.04, 0, gf2.y, gf2.z + 0.01, gf2.rx), '#dfe3e6'));
+  }
+  if (s.fins) {
+    for (const sx of [-1, 1]) {
+      B.paint.push(prep(box(0.09, 0.34, 1.3, sx * (s.W / 2 - 0.12), s.tailTop + 0.1, zR + 0.75, -0.18)));
+      const bl = cyl(0.06, 0.06, 0.14, 10, sx * (s.W / 2 - 0.12), s.tailTop + 0.2, zR + 0.06, 'z');
+      B.tail.push(prep(bl, '#ff1a1a'));
+    }
+  }
+  if (s.twoTone === 'lower' && !livery) {
+    for (const side of [-1, 1]) {
+      const pts = [];
+      const z0 = zR + 0.25, z1 = zF - 0.3;
+      for (let i = 0; i <= 8; i++) { const z = z0 + (z1 - z0) * i / 8; pts.push([z, s.yb + 0.06]); }
+      for (let i = 8; i >= 0; i--) { const z = z0 + (z1 - z0) * i / 8; pts.push([z, (s.yb + beltY(s, z)) / 2 + 0.05]); }
+      // skip the wheel arches: clip the band above them
+      const poly = signedArea(pts) < 0 ? pts.slice().reverse() : pts;
+      B.paint2.push(prep(sidePolygon(poly, () => s.W / 2 + 0.004, side)));
+    }
+  }
+  if (s.twoTone === 'roof' && !livery) {
+    const rw = cDepth / 2 * s.taper;
+    const y = s.roofY + CBS + 0.006;
+    B.paint2.push(prep(quad([
+      new THREE.Vector3(-rw, y, s.roofFZ - 0.05), new THREE.Vector3(rw, y, s.roofFZ - 0.05),
+      new THREE.Vector3(rw, y, s.roofRZ + 0.05), new THREE.Vector3(-rw, y, s.roofRZ + 0.05),
+    ], new THREE.Vector3(0, 1, 0))));
   }
 
   // ---- police liveries & light bars
@@ -758,4 +812,29 @@ export function createCar(modelId, opts = {}) {
 export function carDims(modelId) {
   const s = SPECS[modelId];
   return { L: s.L, W: s.W, H: s.roofY };
+}
+
+// Static (non-driving) car for parked-car props: returns the paint geometry (white,
+// tinted per instance) and everything else merged with baked vertex colours.
+const staticCache = new Map();
+export function staticCarGeometry(modelId) {
+  if (staticCache.has(modelId)) return staticCache.get(modelId);
+  const { spec: s, geo } = buildBody(modelId, null);
+  const recolor = (g, hex) => {
+    const out = g.clone();
+    const c = new THREE.Color(hex), a = out.attributes.color.array;
+    for (let i = 0; i < a.length; i += 3) { a[i] = c.r; a[i + 1] = c.g; a[i + 2] = c.b; }
+    return out;
+  };
+  const rest = [geo.trim, recolor(geo.glass, '#1d2b3a'), geo.head, recolor(geo.tail, '#b3121a')];
+  if (geo.paint2) rest.push(geo.paint2);
+  const wx = s.W / 2 - s.ww / 2 + 0.02;
+  for (const z of [s.fa, s.ra]) for (const side of [-1, 1]) {
+    const t = prep(cyl(s.wr, s.wr, s.ww, 12, side * wx, s.wr, z, 'x'), '#151515');
+    const h = prep(cyl(s.wr * 0.6, s.wr * 0.6, s.ww + 0.02, 10, side * wx, s.wr, z, 'x'), '#9ea3a8');
+    rest.push(t, h);
+  }
+  const out = { paint: geo.paint, rest: mergeGeometries(rest.map((g) => { const x = g.index ? g.toNonIndexed() : g; for (const k of Object.keys(x.attributes)) if (!['position', 'normal', 'color'].includes(k)) x.deleteAttribute(k); return x; })), L: s.L, W: s.W };
+  staticCache.set(modelId, out);
+  return out;
 }

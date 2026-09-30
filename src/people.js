@@ -327,6 +327,7 @@ export class People {
   }
 
   recover(p) {
+    if (p.copFoot && !p.dead) { p.mode = 'copFoot'; p.path = []; return; }
     const b = this.nearestBlock(p.x, p.z);
     this.detach(p);
     p.mode = 'walk';
@@ -398,7 +399,7 @@ export class People {
   // Loud event (crash): startle, then look; curious people come to stare.
   onNoise(x, z, loud = 1) {
     for (const p of this.list) {
-      if (p.script || p.mode === 'down' || p.mode === 'getup' || p.mode === 'flee' || p.mode === 'dodge' || p.mode === 'guard') continue;
+      if (p.script || p.copFoot || p.mode === 'down' || p.mode === 'getup' || p.mode === 'flee' || p.mode === 'dodge' || p.mode === 'guard') continue;
       const d = Math.hypot(p.x - x, p.z - z);
       if (d > 30 * loud) continue;
       const kind = d < 12 && p.nerve > 0.6 ? 'panic' : p.curiosity > 0.7 && !p.leader && p.mode !== 'sit' ? 'rubberneck' : 'startle';
@@ -412,7 +413,7 @@ export class People {
       if (d < r) {
         const k = (1 - d / r) * 13 + 4;
         this.knock(p, (p.x - x) / (d || 1) * k, (p.z - z) / (d || 1) * k, 1.4);
-      } else if (d < r * 4.5 && p.mode !== 'guard') p.react = { t: p.reaction * 0.5 + d / 340, kind: 'panic', x, z };
+      } else if (d < r * 4.5 && p.mode !== 'guard' && !p.copFoot) p.react = { t: p.reaction * 0.5 + d / 340, kind: 'panic', x, z };
     }
   }
 
@@ -463,7 +464,7 @@ export class People {
 
   // What catches the eye: sirens, speeding cars, the chase itself.
   attention(p) {
-    if (p.mode === 'down' || p.mode === 'getup' || p.mode === 'dodge' || p.mode === 'guard') return;
+    if (p.mode === 'down' || p.mode === 'getup' || p.mode === 'dodge' || p.mode === 'guard' || p.copFoot) return;
     let best = null, bs = 0;
     for (const v of this.vehicles) {
       const d = Math.hypot(v.x - p.x, v.z - p.z);
@@ -575,6 +576,7 @@ export class People {
         return;
       case 'follow': return this.updateFollow(p, dt);
       case 'waitCross': return this.updateWaitCross(p, dt);
+      case 'copFoot': return this.updateCopFoot(p, dt);
       case 'guard': {
         // soldier at a military roadblock: hold position, face the threat
         p.speed = damp(p.speed, 0, 6, dt);
@@ -602,6 +604,42 @@ export class People {
     let speed = p.walk * (p.phoneOut ? 0.78 : 1);
     if (wp.cross) speed *= 1.2; // brisk on the road
     this.moveTo(p, wp.x, wp.z, speed, dt);
+  }
+
+  // Police officer on foot: chase the player, stop to aim and fire bursts when in
+  // clear line of sight, grab the player when close enough to arrest.
+  updateCopFoot(p, dt) {
+    const g = this.game, t = g.player;
+    p.shootCool = (p.shootCool ?? 1) - dt;
+    if (p.fireT > 0) { p.fireT -= dt; if (p.fireT <= 0) p.firing = false; }
+    if (!t || g.state !== 'playing') { p.speed = damp(p.speed, 0, 5, dt); p.aiming = false; return; }
+    const dx = t.x - p.x, dz = t.z - p.z, d = Math.hypot(dx, dz);
+    p.look = t; p.lookT = 0.5;
+    const los = d < 45 && !g.city.segmentBlocked(p.x, p.z, t.x, t.z, 0.4);
+    p.arresting = false;
+    if (t.kind === 'avatar' && d < 2.3 && los) {
+      // close enough to grab
+      p.aiming = false; p.arresting = true;
+      p.heading += wrapAngle(Math.atan2(dx, dz) - p.heading) * Math.min(1, dt * 8);
+      if (d > 0.9) this.moveTo(p, t.x, t.z, 2.2, dt, true); else p.speed = damp(p.speed, 0, 8, dt);
+      return;
+    }
+    if (los && d < (t.kind === 'avatar' ? 22 : 30)) {
+      p.speed = damp(p.speed, 0, 6, dt);
+      const face = Math.atan2(dx, dz);
+      p.heading += wrapAngle(face - p.heading) * Math.min(1, dt * 7);
+      p.aiming = true;
+      if (p.shootCool <= 0 && Math.abs(wrapAngle(face - p.heading)) < 0.25) {
+        g.combat.copShoot(p, t);
+        p.firing = true; p.fireT = 0.22;
+        p.burst = (p.burst || 0) + 1;
+        p.shootCool = p.burst >= 3 ? 1.8 + Math.random() * 1.5 : 0.3 + Math.random() * 0.25;
+        if (p.burst >= 3) p.burst = 0;
+      }
+      return;
+    }
+    p.aiming = false;
+    this.moveTo(p, t.x, t.z, 5.6, dt, true);
   }
 
   updateWaitCross(p, dt) {
@@ -658,8 +696,9 @@ export class People {
       const fwd = rx * sin + rz * cos, side = rx * cos - rz * sin;
       if (Math.abs(fwd) < v.L / 2 + 0.25 && Math.abs(side) < v.W / 2 + 0.25) {
         if (sp2 > 7) {
+          if (p.copFoot) { p.hp = (p.hp ?? 40) - Math.sqrt(sp2) * 3; if (p.hp <= 0 && !p.dead) { p.dead = true; this.game.onOfficerDown?.(p, v); } }
           this.knock(p, v.vx, v.vz);
-          this.game.onPedestrianHit?.(p, v);
+          if (!p.copFoot) this.game.onPedestrianHit?.(p, v);
         } else {
           const d = Math.sqrt(d2) || 1;
           p.x += (rx / d) * 0.06; p.z += (rz / d) * 0.06;
@@ -758,6 +797,7 @@ export class People {
     }
     p.speed = 0;
     p.timer -= dt;
+    if (p.dead) { p.timer = 1; return; }
     if (p.timer <= 0 && !air && Math.hypot(p.vx, p.vz) < 0.5) {
       p.mode = 'getup';
       p.getupT = 0;
@@ -878,7 +918,7 @@ export class People {
     const fxv = this.game.focus.x, fzv = this.game.focus.z;
     const vis = this.visible || (this.visible = []);
     vis.length = 0;
-    for (const p of this.list) if (Math.abs(p.x - fxv) < 95 && Math.abs(p.z - fzv) < 95) vis.push(p);
+    for (const p of this.list) if (!p.rig && Math.abs(p.x - fxv) < 95 && Math.abs(p.z - fzv) < 95) vis.push(p);
     const n = Math.min(vis.length, MAX);
     const [root, pel, tor, hd, arm, fore, leg, scratch] = this.m;
     const { tmp, q, e, v, s } = this;

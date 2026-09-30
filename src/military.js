@@ -266,7 +266,7 @@ export class Military {
     for (const across of [-6.5, -1.5, 1.5, 6.5]) {
       const c = at(bAlong - 2.2, across + (Math.random() - 0.5));
       const s = g.people.make(c.x, c.z, {
-        mode: 'guard', heading: face, guardHeading: face, backpack: false, umbrella: false, longSleeve: true, hair: 'cap',
+        mode: 'guard', soldier: true, heading: face, guardHeading: face, backpack: false, umbrella: false, longSleeve: true, hair: 'cap',
         shirt: new THREE.Color('#4b5a32'), pants: new THREE.Color('#3f4a2c'), hatC: new THREE.Color('#556b2f'), timer: 60,
       });
       blk.soldiers.push(s);
@@ -304,7 +304,7 @@ export class Military {
     const a = Math.random() * Math.PI * 2;
     this.gunships.push({
       ...m, x: p.x + Math.cos(a) * 190, z: p.z + Math.sin(a) * 190, y: 26 + (k % 3) * 5, vx: 0, vz: 0, heading: 0, t: k * 2.1,
-      cool: 3 + k * 1.3, aimT: 0, bombCool: 6 + k * 2, laser: null,
+      cool: 3 + k * 1.3, aimT: 0, bombCool: 6 + k * 2, laser: null, hp: 180,
       orbitR: 36 + (k % 3) * 9, orbitDir: k % 2 ? -1 : 1, slot: k,
     });
     if (!this.announced?.gunships) { (this.announced ||= {}).gunships = true; g.ui.toast('ATTACK HELICOPTERS INBOUND', 'bad'); }
@@ -319,8 +319,29 @@ export class Military {
     return Math.min(0.4, v);
   }
 
+  // A helicopter that has been shot down: spins, smokes and falls, then explodes.
+  // Returns true once it has hit the ground.
+  updateFalling(h, dt) {
+    const g = this.game;
+    h.fallV = (h.fallV || 0) + 14 * dt;
+    h.y -= h.fallV * dt;
+    h.x += (h.vx || 0) * dt * 0.5; h.z += (h.vz || 0) * dt * 0.5;
+    h.spin = (h.spin || 0) + dt * 7;
+    h.group.position.set(h.x, h.y, h.z);
+    h.group.rotation.set(0.5, h.heading + h.spin, 0.35, 'YXZ');
+    h.rotor.rotation.y += dt * 10;
+    g.effects.damageSmoke(h.x, h.y, h.z, true);
+    if (h.y <= 1.5) {
+      g.explode(h.x, h.z, 12, 50, null, true);
+      this.addScorch(h.x, h.z, 12);
+      return true;
+    }
+    return false;
+  }
+
   updateGunship(h, dt) {
     const g = this.game, p = g.player;
+    if (h.falling) return;
     h.t += dt;
     // each helicopter holds its own slot on a ring around the player
     const n = this.gunships.length;
@@ -473,7 +494,12 @@ export class Military {
     }
     for (const c of g.police.cops) if (c.copType === 'tank') this.updateTank(c, dt);
     if (this.block) this.updateBlock(dt);
-    for (const h of this.gunships) this.updateGunship(h, dt);
+    for (let i = this.gunships.length - 1; i >= 0; i--) {
+      const h = this.gunships[i];
+      if (h.falling) {
+        if (this.updateFalling(h, dt)) { g.scene.remove(h.group); this.gunships.splice(i, 1); this.gunTimer = 20; }
+      } else this.updateGunship(h, dt);
+    }
     for (const w of this.warnings) {
       if (w.kind === 'ring') {
         w.t += dt;

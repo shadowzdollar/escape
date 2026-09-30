@@ -3,9 +3,10 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { CITY } from './config.js';
+import { staticCarGeometry } from './carModels.js';
 import { mulberry32, clamp, rand, randInt, pick, valueNoise2D } from './utils.js';
 import {
-  asphaltTexture, groundTexture, sidewalkTexture, facadeTextures, radialTexture, signTexture,
+  asphaltTexture, groundTexture, sidewalkTexture, facadeTextures, radialTexture, signTexture, asphaltDetailMaps,
 } from './textures.js';
 
 const { N, BLOCK, ROAD, SIDEWALK, CELL, RIVER_ROW, HALF } = CITY;
@@ -30,6 +31,15 @@ const THEMES = {
     houseRoof: ['#b5653c', '#9c4f2e', '#c2703f'],
     flatRoof: ['#c8a67e', '#b9976f', '#d3b58f'],
     tree: 'palm', maxH: 42, water: '#2e9aa6', lineAlpha: 0.7, snowRoof: false,
+  },
+  egypt: {
+    ground: 'sand', road: '#57504a', sidewalk: '#dcc9a3', curb: '#c2ab82',
+    facades: { adobe: { cw: 3.2, ch: 3.4 }, residential: { cw: 3.0, ch: 3.1 }, office: { cw: 3.4, ch: 3.6 } },
+    wall: ['#e9cf9f', '#dcb482', '#f0dcb4', '#d3a36f', '#e6c095', '#c89a6b', '#f2e0c0', '#dfb489'],
+    glassTint: ['#b7cfd6'],
+    houseRoof: ['#c8a67e'],
+    flatRoof: ['#cdb08a', '#bfa07a', '#d6bb95'],
+    tree: 'palm', maxH: 34, water: '#2f8a86', lineAlpha: 0.6, snowRoof: false,
   },
   snow: {
     ground: 'snow', road: '#4a4f56', sidewalk: '#dfe5ec', curb: '#c6ccd3',
@@ -255,6 +265,7 @@ export class City {
   constructor(map, { quality = 'high' } = {}) {
     this.map = map;
     this.theme = THEMES[map.theme];
+    this.sandy = map.theme === 'desert' || map.theme === 'egypt';
     this.quality = quality;
     this.rng = mulberry32(map.seed);
     this.noise = valueNoise2D(map.seed + 7);
@@ -448,14 +459,16 @@ export class City {
       asphalt: asphaltTexture(T.road, this.map.seed),
       ground: groundTexture(T.ground, this.map.seed + 1),
       sidewalk: sidewalkTexture(T.sidewalk, this.map.seed + 2),
-      grass: groundTexture(this.map.theme === 'snow' ? 'snow' : this.map.theme === 'desert' ? 'sand' : 'grass', this.map.seed + 3),
+      grass: groundTexture(this.map.theme === 'snow' ? 'snow' : this.sandy ? 'sand' : 'grass', this.map.seed + 3),
       dirt: groundTexture(this.map.theme === 'snow' ? 'snow' : 'dirt', this.map.seed + 4),
     };
+    const det = asphaltDetailMaps(this.map.seed + 9, this.night);
+    this.tex.asphaltN = det.normal; this.tex.asphaltR = det.rough;
     this.facadeTex = {};
     for (const style of Object.keys(T.facades)) this.facadeTex[style] = facadeTextures(style, this.map.seed + style.length * 11);
 
     const M = this.materials = {
-      asphalt: new THREE.MeshStandardMaterial({ map: this.tex.asphalt, roughness: this.night ? 0.45 : 0.92, metalness: this.night ? 0.25 : 0.0 }),
+      asphalt: new THREE.MeshStandardMaterial({ map: this.tex.asphalt, roughness: this.night ? 0.55 : 0.95, metalness: this.night ? 0.25 : 0.0, normalMap: this.tex.asphaltN, normalScale: new THREE.Vector2(0.5, 0.5), roughnessMap: this.tex.asphaltR }),
       ground: new THREE.MeshStandardMaterial({ map: this.tex.ground, roughness: 1 }),
       sidewalk: new THREE.MeshStandardMaterial({ map: this.tex.sidewalk, vertexColors: true, roughness: 0.9 }),
       grass: new THREE.MeshStandardMaterial({ map: this.tex.grass, vertexColors: true, roughness: 1 }),
@@ -517,8 +530,32 @@ export class City {
     this.neonMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 1, 1).multiplyScalar(this.night ? 2.6 : 0.9) });
     addPropType('neon', pg.neon, this.neonMat, { cast: false, colors: true });
 
+    // parked cars (instanced, chunked) + traffic lights
+    const pmat = new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.35, vertexColors: true });
+    const rmat = new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.3, vertexColors: true });
+    this.parkedModels = ['hatch', 'sedan', 'sedan', 'van', 'buggle', 'taxi'];
+    for (const m of new Set(this.parkedModels)) {
+      const g = staticCarGeometry(m);
+      addPropType('pc_' + m, g.paint, pmat, { colors: true, cast: false });
+      addPropType('pr_' + m, g.rest, rmat, { cast: false });
+    }
+    const pshadow = new THREE.PlaneGeometry(2.4, 5).rotateX(-Math.PI / 2).translate(0, 0.03, 0);
+    addPropType('pshadow', pshadow, new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 }), { cast: false });
+    const tlPole = mergeGeometries([
+      new THREE.CylinderGeometry(0.1, 0.12, 5.2, 6).translate(0, 2.6, 0),
+      new THREE.BoxGeometry(0.1, 0.1, 3.2).translate(0, 5.1, 1.6),
+    ].map((g) => { const x = g.toNonIndexed(); x.deleteAttribute('uv'); return x; }));
+    addPropType('tlPole', tlPole, trim);
+    const tlHead = new THREE.BoxGeometry(0.42, 1.1, 0.34).translate(0, 4.6, 3.1);
+    addPropType('tlHead', tlHead, new THREE.MeshStandardMaterial({ color: 0x1b1d20, roughness: 0.6 }));
+    this.tlMat = { a: new THREE.MeshBasicMaterial({ color: 0xffffff }), b: new THREE.MeshBasicMaterial({ color: 0xffffff }) };
+    const lampG = new THREE.SphereGeometry(0.15, 8, 6).translate(0, 4.6, 3.3);
+    addPropType('tlLampA', lampG, this.tlMat.a, { cast: false });
+    addPropType('tlLampB', lampG, this.tlMat.b, { cast: false });
+
     this.generateBlocks();
     this.buildRoads();
+    this.buildStreetLife();
     this.buildRiver();
     this.buildBoundary();
     this.buildOutskirts();
@@ -596,7 +633,9 @@ export class City {
         const n = this.noise(i * 0.45, j * 0.45);
         let type;
         const r = rng();
+        const plateau = theme === 'egypt' && i >= 10 && j >= 10;
         if (i === N / 2 - 1 && j === N / 2 - 1) type = 'bank';
+        else if (plateau) type = { '12,12': 'pyramid', '14,11': 'pyramid', '11,14': 'pyramid', '10,12': 'sphinx', '14,14': 'airstrip' }[`${i},${j}`] || 'dunes';
         else if (theme !== 'desert' && i <= 3 && j >= N - 5) type = 'industrial';
         else if (theme === 'desert' && i >= N - 4 && j <= 3) type = 'industrial';
         else if (r < 0.08 && !(i === N / 2 - 1 && j === N / 2 - 1)) type = 'park';
@@ -652,7 +691,7 @@ export class City {
         }
       }
     };
-    edgeProps(b.type);
+    if (!['pyramid', 'sphinx', 'airstrip', 'dunes'].includes(b.type)) edgeProps(b.type);
 
     switch (b.type) {
       case 'downtown': this.buildDowntown(b, ix0, ix1, iz0, iz1); break;
@@ -663,6 +702,10 @@ export class City {
       case 'plaza': this.buildPlaza(b, ix0, ix1, iz0, iz1); break;
       case 'parking': this.buildParking(b, ix0, ix1, iz0, iz1); break;
       case 'bank': this.buildBank(b, ix0, ix1, iz0, iz1); break;
+      case 'pyramid': this.buildPyramid(b, ix0, ix1, iz0, iz1); break;
+      case 'sphinx': this.buildSphinx(b, ix0, ix1, iz0, iz1); break;
+      case 'airstrip': this.buildAirstrip(b, ix0, ix1, iz0, iz1); break;
+      case 'dunes': this.buildDunes(b, ix0, ix1, iz0, iz1); break;
     }
   }
 
@@ -738,7 +781,121 @@ export class City {
         }
       }
     }
+    if (this.map.theme === 'egypt' && kind !== 'house') {
+      if (rng() < 0.3) {
+        // dome
+        const r = Math.min(t1 - t0, s1 - s0) * 0.28;
+        const cx = (t0 + t1) / 2, cz = (s0 + s1) / 2;
+        const d = new THREE.SphereGeometry(r, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+        d.translate(cx, ty + 0.8, cz);
+        this.colored(d, rng() < 0.5 ? '#e8d5ae' : '#3c8f8a');
+        pbox(roof, cx - r * 0.9, cx + r * 0.9, ty, ty + 0.8, cz - r * 0.9, cz + r * 0.9, wallCol);
+      } else if (rng() < 0.12) {
+        // minaret
+        const mx = t0 + 2, mz = s0 + 2;
+        const m = new THREE.CylinderGeometry(0.9, 1.1, 16, 8); m.translate(mx, ty + 8, mz);
+        const top = new THREE.ConeGeometry(1.2, 3, 8); top.translate(mx, ty + 17.5, mz);
+        const bal = new THREE.CylinderGeometry(1.5, 1.5, 0.5, 8); bal.translate(mx, ty + 13, mz);
+        this.colored(m, '#efe0c0'); this.colored(bal, '#d9c49c'); this.colored(top, '#3c8f8a');
+      }
+    }
     return { style, wallCol };
+  }
+
+  // extra vertex-coloured geometry (domes, pyramids details, plane) merged at the end
+  colored(geo, color) {
+    const g = geo.index ? geo.toNonIndexed() : geo;
+    if (g.attributes.uv) g.deleteAttribute('uv');
+    const c = new THREE.Color(color), n = g.attributes.position.count, a = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b; }
+    g.setAttribute('color', new THREE.BufferAttribute(a, 3));
+    (this.coloredGeo ||= []).push(g);
+  }
+
+  // ---------------------------------------------------------------- Giza plateau
+  buildPyramid(b, ix0, ix1, iz0, iz1) {
+    const sand = this.bucket(b.chunk, 'grass');
+    hquad(sand, ix0, iz0, ix1, iz1, 0.16, col('#ffffff'));
+    const roof = this.bucket(b.chunk, 'roof');
+    const cx = (ix0 + ix1) / 2, cz = (iz0 + iz1) / 2;
+    const size = { '12,12': 50, '14,11': 42, '11,14': 34 }[`${b.i},${b.j}`] || 40;
+    const layers = Math.round(size / 3.2);
+    const hStep = (size * 0.66) / layers;
+    for (let k = 0; k < layers; k++) {
+      const half = (size / 2) * (1 - k / layers);
+      const shade = 0.92 + ((k * 7) % 5) * 0.02;
+      const c = col('#d9b77e').multiplyScalar(shade);
+      pbox(roof, cx - half, cx + half, 0.15 + k * hStep, 0.15 + (k + 1) * hStep, cz - half, cz + half, c);
+    }
+    const top = 0.15 + layers * hStep;
+    const cap = new THREE.ConeGeometry(1.8, 3, 4); cap.rotateY(Math.PI / 4); cap.translate(cx, top + 1.5, cz);
+    this.colored(cap, '#f2c94c');
+    this.addBox(cx - size / 2, cx + size / 2, cz - size / 2, cz + size / 2, 'building', top);
+    for (let k = 0; k < 6; k++) this.prop('rock', cx + (Math.random() - 0.5) * 60, 0.15, cz + (Math.random() > 0.5 ? 1 : -1) * (size / 2 + 3), Math.random() * 6, 0.8 + Math.random(), '#b88a5a');
+    (this.landmarks ||= []).push({ kind: 'pyramid', x: cx, z: cz, h: top });
+  }
+
+  buildSphinx(b, ix0, ix1, iz0, iz1) {
+    const sand = this.bucket(b.chunk, 'grass');
+    hquad(sand, ix0, iz0, ix1, iz1, 0.16, col('#ffffff'));
+    const r = this.bucket(b.chunk, 'roof');
+    const cx = (ix0 + ix1) / 2, cz = (iz0 + iz1) / 2;
+    const st = col('#cfa76c'), dk = col('#b58d57');
+    // plinth, lion body, haunches, front paws facing +x (toward the avenue)
+    pbox(r, cx - 14, cx + 14, 0.15, 1.2, cz - 6, cz + 6, dk);
+    pbox(r, cx - 11, cx + 5, 1.2, 6.5, cz - 3.4, cz + 3.4, st);
+    pbox(r, cx - 12, cx - 7, 1.2, 5.5, cz - 4, cz + 4, st);
+    pbox(r, cx + 5, cx + 13, 1.2, 2.4, cz - 3.6, cz - 1.4, st);
+    pbox(r, cx + 5, cx + 13, 1.2, 2.4, cz + 1.4, cz + 3.6, st);
+    // chest and head with the striped nemes headdress
+    pbox(r, cx + 2.5, cx + 7, 1.2, 8, cz - 2.6, cz + 2.6, st);
+    pbox(r, cx + 4, cx + 8.2, 8, 12.4, cz - 2.1, cz + 2.1, st);
+    pbox(r, cx + 3.6, cx + 7.6, 8.5, 12.8, cz - 3.2, cz + 3.2, col('#c79a5b'));
+    for (let k = 0; k < 5; k++) pbox(r, cx + 3.55, cx + 7.62, 9 + k * 0.8, 9.3 + k * 0.8, cz - 3.25, cz + 3.25, col('#6d8fb3'));
+    pbox(r, cx + 8.2, cx + 8.7, 9.5, 11, cz - 0.4, cz + 0.4, dk);
+    this.addBox(cx - 14, cx + 14, cz - 6, cz + 6, 'building', 12);
+    for (let k = 0; k < 4; k++) this.tree(ix0 + 4 + k * 14, iz1 - 4, 0.15);
+    (this.landmarks ||= []).push({ kind: 'sphinx', x: cx, z: cz, h: 12 });
+  }
+
+  buildDunes(b, ix0, ix1, iz0, iz1) {
+    const rng = this.rng;
+    const sand = this.bucket(b.chunk, 'grass');
+    hquad(sand, ix0, iz0, ix1, iz1, 0.16, col('#ffffff'));
+    for (let k = 0; k < 5; k++) {
+      const x = rand(rng, ix0 + 4, ix1 - 4), z = rand(rng, iz0 + 4, iz1 - 4);
+      this.prop('rock', x, 0.15, z, rng() * 6, rand(rng, 0.6, 1.6), pick(rng, ['#b88a5a', '#a0754a', '#c9a878']));
+      this.addCircle(x, z, 0.9, 'rock');
+    }
+    for (let k = 0; k < 3; k++) this.tree(rand(rng, ix0 + 4, ix1 - 4), rand(rng, iz0 + 4, iz1 - 4), 0.15);
+    for (let k = 0; k < 4; k++) this.smallTree(rand(rng, ix0 + 3, ix1 - 3), rand(rng, iz0 + 3, iz1 - 3), 0.16);
+  }
+
+  buildAirstrip(b, ix0, ix1, iz0, iz1) {
+    const pk = this.bucket(b.chunk, 'parking');
+    const m = this.bucket(b.chunk, 'markings');
+    const cx = (ix0 + ix1) / 2, cz = (iz0 + iz1) / 2;
+    hquad(pk, ix0, iz0, ix1, iz1, 0.16, col('#8a8a8a'));
+    hquad(pk, ix0 + 2, cz - 7, ix1 - 2, cz + 7, 0.17, col('#5d5d5d'));
+    for (let x = ix0 + 4; x < ix1 - 4; x += 6) hquad(m, x, cz - 0.3, x + 3, cz + 0.3, 0.19, col('#f4f4f4'), 4);
+    hquad(m, ix0 + 3, cz - 6.6, ix1 - 3, cz - 6.2, 0.19, col('#f2c14e'), 4);
+    hquad(m, ix0 + 3, cz + 6.2, ix1 - 3, cz + 6.6, 0.19, col('#f2c14e'), 4);
+    // the escape plane: a small jet parked at the east end, facing west
+    const px = ix1 - 14, pz = cz;
+    const fus = new THREE.CylinderGeometry(1.3, 1.1, 16, 14); fus.rotateZ(Math.PI / 2); fus.translate(px, 2.4, pz);
+    const nose = new THREE.SphereGeometry(1.3, 12, 8); nose.scale(2.2, 1, 1); nose.translate(px - 8, 2.4, pz);
+    const wing = new THREE.BoxGeometry(4, 0.3, 17); wing.translate(px + 1, 1.9, pz);
+    const tailV = new THREE.BoxGeometry(2.6, 3.6, 0.3); tailV.translate(px + 7.2, 4.6, pz);
+    const tailH = new THREE.BoxGeometry(2.2, 0.25, 6.5); tailH.translate(px + 7.6, 3.2, pz);
+    const cockpit = new THREE.SphereGeometry(0.9, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2); cockpit.scale(1.9, 0.8, 1); cockpit.translate(px - 7.4, 3.2, pz);
+    const stripe = new THREE.CylinderGeometry(1.32, 1.12, 13, 14, 1, true); stripe.rotateZ(Math.PI / 2); stripe.translate(px + 0.5, 2.4, pz); stripe.scale(1, 1, 1);
+    for (const [g, c] of [[fus, '#f4f4f4'], [nose, '#f4f4f4'], [wing, '#d9dde2'], [tailV, '#c0392b'], [tailH, '#d9dde2'], [cockpit, '#1d2c38']]) this.colored(g, c);
+    for (const sz of [-3.4, 3.4]) { const e = new THREE.CylinderGeometry(0.55, 0.55, 2.4, 10); e.rotateZ(Math.PI / 2); e.translate(px + 1.5, 1.3, pz + sz); this.colored(e, '#7f8c8d'); }
+    for (const [gx, gz] of [[px - 6, 0], [px + 2, -2.2], [px + 2, 2.2]]) { const w = new THREE.CylinderGeometry(0.1, 0.1, 1.2, 6); w.translate(gx, 0.75, pz + gz); this.colored(w, '#333'); }
+    this.addBox(px - 9, px + 9, pz - 1.4, pz + 1.4, 'plane', 5);
+    this.addBox(px - 1, px + 3, pz - 8.5, pz + 8.5, 'plane', 2.2);
+    this.airstrip = { x: px - 14, z: pz };
+    for (let k = 0; k < 4; k++) this.lamp(ix0 + 8 + k * 14, iz0 + 1, 0);
   }
 
   shopfront(b, x0, x1, z0, z1, faces) {
@@ -876,7 +1033,7 @@ export class City {
         const x0 = cx - hw, x1 = cx + hw, z0 = cz - hd, z1 = cz + hd;
         const { wallCol } = this.building(b, x0, x1, z0, z1, h, 'house');
         const rc_ = col(pick(rng, T.houseRoof));
-        if (this.map.theme === 'desert' && rng() < 0.6) {
+        if (this.sandy && rng() < 0.6) {
           // flat adobe roof with a parapet
           const pc = wallCol.clone().multiplyScalar(0.92);
           pbox(roof, x0, x1, 0.15 + h, 0.15 + h + 0.6, z0, z0 + 0.3, pc);
@@ -952,7 +1109,7 @@ export class City {
     // central feature: fountain or pond
     const roof = this.bucket(b.chunk, 'concrete');
     const water = this.bucket(b.chunk, 'water');
-    if (rng() < 0.5 || this.map.theme === 'desert') {
+    if (rng() < 0.5 || this.sandy) {
       // fountain
       const r = 4;
       const seg = 12;
@@ -998,7 +1155,7 @@ export class City {
     const c = this.bucket(b.chunk, 'concrete');
     // statue on a plinth
     pbox(c, cx - 2, cx + 2, 0.15, 1.6, cz - 2, cz + 2, col('#bdb6a8'));
-    pbox(c, cx - 0.6, cx + 0.6, 1.6, 5.5, cz - 0.6, cz + 0.6, col(this.map.theme === 'desert' ? '#b08d57' : '#6b8f71'));
+    pbox(c, cx - 0.6, cx + 0.6, 1.6, 5.5, cz - 0.6, cz + 0.6, col(this.sandy ? '#b08d57' : '#6b8f71'));
     this.addBox(cx - 2, cx + 2, cz - 2, cz + 2, 'statue', 5);
     // planters with trees on a ring
     for (let k = 0; k < 8; k++) {
@@ -1018,7 +1175,7 @@ export class City {
   // Classical bank: the heist location. Faces +x toward the avenue at x = 0.
   buildBank(b, ix0, ix1, iz0, iz1) {
     const Y = 0.15;
-    const stone = col(this.map.theme === 'desert' ? '#ecd9b6' : '#ebe4d6');
+    const stone = col(this.sandy ? '#ecd9b6' : '#ebe4d6');
     const trim = col('#c9a74a');
     const roof = this.bucket(b.chunk, 'roof');
     const c = this.bucket(b.chunk, 'concrete');
@@ -1085,6 +1242,56 @@ export class City {
       }
     }
     for (let k = 0; k < 4; k++) this.lamp(ix0 + 8 + k * 12, (iz0 + iz1) / 2, rng() * 6);
+  }
+
+  // ---------------------------------------------------------------- parked cars & traffic lights
+  buildStreetLife() {
+    const rng = this.rng;
+    const blockAt = new Map(this.blocks.map((b) => [`${b.i},${b.j}`, b]));
+    const urban = (b) => b && ['downtown', 'midtown', 'suburb', 'bank'].includes(b.type);
+    const busy = (b) => b && ['downtown', 'midtown', 'bank'].includes(b.type);
+    const colors = ['#d8d8d8', '#1d3557', '#9d0208', '#6a994e', '#495057', '#bc6c25', '#264653', '#e9c46a', '#2b2d42', '#8d99ae', '#a4133c', '#111111', '#f1faee'];
+    const park = (x, z, heading) => {
+      const m = this.parkedModels[Math.floor(rng() * this.parkedModels.length)];
+      const c = m === 'taxi' ? '#ffc300' : colors[Math.floor(rng() * colors.length)];
+      this.prop('pc_' + m, x, 0, z, heading, 1, c);
+      this.prop('pr_' + m, x, 0, z, heading);
+      this.prop('pshadow', x, 0, z, heading);
+      const s = Math.sin(heading), co = Math.cos(heading);
+      for (const o of [-1.3, 1.3]) this.addCircle(x + s * o, z + co * o, 1.0, 'parked');
+    };
+    const OFF = 6.7;
+    for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) {
+      // x-direction segment (i,j)->(i+1,j): blocks above/below are (i,j-1) and (i,j)
+      if (i < N) {
+        const z = rc(j), a = rc(i) + RH + 9, bb = rc(i + 1) - RH - 9;
+        for (const side of [-1, 1]) {
+          const blk = blockAt.get(`${i},${side > 0 ? j : j - 1}`);
+          if (!urban(blk)) continue;
+          for (let x = a; x < bb; x += 7.2) if (rng() < 0.1) park(x + (rng() - 0.5), z + side * OFF, side > 0 ? Math.PI / 2 : -Math.PI / 2);
+        }
+      }
+      if (j < N && !(j === RIVER_ROW)) {
+        const x = rc(i), a = rc(j) + RH + 9, bb = rc(j + 1) - RH - 9;
+        for (const side of [-1, 1]) {
+          const blk = blockAt.get(`${side > 0 ? i : i - 1},${j}`);
+          if (!urban(blk)) continue;
+          for (let z = a; z < bb; z += 7.2) if (rng() < 0.1) park(x + side * OFF, z + (rng() - 0.5), side > 0 ? Math.PI : 0);
+        }
+      }
+      // traffic lights on busy intersections (poles on two opposite corners)
+      const around = [blockAt.get(`${i - 1},${j - 1}`), blockAt.get(`${i},${j - 1}`), blockAt.get(`${i - 1},${j}`), blockAt.get(`${i},${j}`)];
+      if (around.filter(busy).length >= 2 && i > 0 && j > 0 && i < N && j < N) {
+        const x0 = rc(i), z0 = rc(j), d = RH + 1.2;
+        // arms reach over the lanes: pole A faces traffic on the x-road, pole B on the z-road
+        for (const [px, pz, rot, lamp] of [[x0 - d, z0 - d, Math.PI / 2, 'tlLampA'], [x0 + d, z0 + d, -Math.PI / 2, 'tlLampA'], [x0 + d, z0 - d, Math.PI, 'tlLampB'], [x0 - d, z0 + d, 0, 'tlLampB']]) {
+          const a1 = this.prop('tlPole', px, 0.15, pz, rot);
+          const a2 = this.prop('tlHead', px, 0.15, pz, rot);
+          const a3 = this.prop(lamp, px, 0.15, pz, rot);
+          this.addCircle(px, pz, 0.3, 'tlight', { parts: [['tlPole', a1], ['tlHead', a2], [lamp, a3]], kind: 'lamp' });
+        }
+      }
+    }
   }
 
   // ---------------------------------------------------------------- roads
@@ -1166,7 +1373,7 @@ export class City {
     this.waterMesh = water;
     // river bed/banks walls (visual) + colliders for each stretch between bridges
     const c = this.bucket('river', 'concrete');
-    const wallC = col(this.map.theme === 'desert' ? '#c9a878' : '#9a9a96');
+    const wallC = col(this.sandy ? '#c9a878' : '#9a9a96');
     const bridges = [];
     for (let i = 0; i <= N; i++) if (this.hasBridge(i)) bridges.push(i);
     const xs = [-2000];
@@ -1209,7 +1416,7 @@ export class City {
     // concrete wall and barriers ring around the city
     const c = this.bucket('edge', 'concrete');
     const H = HALF;
-    const wc = col(this.map.theme === 'desert' ? '#cdb58f' : this.map.theme === 'snow' ? '#dfe4ea' : '#b9b6ae');
+    const wc = col(this.sandy ? '#cdb58f' : this.map.theme === 'snow' ? '#dfe4ea' : '#b9b6ae');
     const t = 1.2, h = 3.2;
     pbox(c, -H - t, H + t, 0, h, -H - t, -H, wc);
     pbox(c, -H - t, H + t, 0, h, H, H + t, wc);
@@ -1255,7 +1462,7 @@ export class City {
       const rz0 = rc(RIVER_ROW) + RH - 4, rz1 = rc(RIVER_ROW + 1) - RH + 4;
       if (z > rz0 && z < rz1) continue;
       if (rng() < 0.8) this.tree(x, z, -0.05, false);
-      else this.prop('rock', x, -0.05, z, rng() * 6, rand(rng, 0.8, 2.4), pick(rng, this.map.theme === 'desert' ? ['#b88a5a', '#a0754a'] : ['#8a8a86', '#77736e']));
+      else this.prop('rock', x, -0.05, z, rng() * 6, rand(rng, 0.8, 2.4), pick(rng, this.sandy ? ['#b88a5a', '#a0754a'] : ['#8a8a86', '#77736e']));
     }
   }
 
@@ -1277,6 +1484,13 @@ export class City {
         if (name === 'markings') mesh.renderOrder = 1;
         this.group.add(mesh);
       }
+    }
+    if (this.coloredGeo) {
+      const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.75, metalness: 0.05 });
+      applyCutout(mat);
+      const m = new THREE.Mesh(mergeGeometries(this.coloredGeo), mat);
+      m.castShadow = m.receiveShadow = true;
+      this.group.add(m);
     }
     if (this.extraGeo) {
       const m = new THREE.Mesh(mergeGeometries(this.extraGeo.map((g) => { g.deleteAttribute('uv'); return g; })), new THREE.MeshStandardMaterial({ color: 0xe6e0d4, roughness: 0.55, metalness: 0.15 }));
@@ -1382,6 +1596,13 @@ export class City {
         this.group.remove(d.mesh);
         this.debris.splice(k, 1);
       }
+    }
+    // traffic-light cycle: A = x-road signals, B = z-road signals
+    if (this.tlMat) {
+      const t = time % 16;
+      const set = (m, st) => m.color.setRGB(...(st === 'g' ? [0.2, 2.6, 0.5] : st === 'y' ? [2.6, 1.8, 0.2] : [2.8, 0.15, 0.1]));
+      set(this.tlMat.a, t < 6.5 ? 'g' : t < 8 ? 'y' : 'r');
+      set(this.tlMat.b, t >= 8 && t < 14.5 ? 'g' : t >= 14.5 ? 'y' : 'r');
     }
     // aviation beacons blink
     if (this.beaconMat) {

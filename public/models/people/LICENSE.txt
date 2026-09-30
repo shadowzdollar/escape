@@ -1,0 +1,3 @@
+Character models: Quaternius (https://quaternius.com), "Ultimate Animated Character Pack"
+characters obtained via poly.pizza. License: CC0 1.0 Universal (public domain).
+Optimised for this game (animations shared from business.glb, Draco-compressed).

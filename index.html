@@ -27,6 +27,7 @@
       <button class="btn big primary" data-action="play">▶ PLAY</button>
       <button class="btn" data-action="garage">GARAGE</button>
       <button class="btn" data-action="maps">MAPS</button>
+      <button class="btn" data-action="trophies">TROPHIES</button>
       <button class="btn" data-action="settings">SETTINGS</button>
       <div class="menu-meta">
         <div><b id="menu-map">METRO CITY</b></div>
@@ -40,6 +41,33 @@
       <div class="joy-badge" id="joy-badge" data-action="settings">🎮 NO CONTROLLER</div>
     </div>
     <div class="wallet"><span class="coin-ico"></span><b id="wallet">0</b></div>
+  </div>
+
+  <!-- mode select -->
+  <div id="modes" class="screen">
+    <div class="panel modes-panel">
+      <div class="panel-head"><button class="btn icon" data-action="back">←</button><h2>CHOOSE MODE</h2></div>
+      <div class="mode-grid">
+        <div class="mode-card story" data-action="story"><h3>STORY</h3><p>Five missions from the bank heist to the pyramids. Each one unlocks the next.</p><small id="story-progress"></small></div>
+        <div class="mode-card endless" data-action="endless"><h3>ENDLESS CHASE</h3><p>Survive as long as you can. The heat never stops rising.</p><small>7 wanted levels</small></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- story missions -->
+  <div id="story" class="screen">
+    <div class="panel story-panel">
+      <div class="panel-head"><button class="btn icon" data-action="modes">←</button><h2>STORY</h2></div>
+      <div class="mission-list" id="mission-list"></div>
+    </div>
+  </div>
+
+  <!-- trophies -->
+  <div id="trophies" class="screen">
+    <div class="panel trophy-panel">
+      <div class="panel-head"><button class="btn icon" data-action="back">←</button><h2>TROPHIES</h2><span id="trophy-count" class="trophy-count"></span></div>
+      <div class="trophy-grid" id="trophy-grid"></div>
+    </div>
   </div>
 
   <!-- garage -->
@@ -97,13 +125,18 @@
     </div>
     <canvas id="minimap" width="200" height="200"></canvas>
     <div class="hud-bl">
-      <div class="bar hp"><label>HULL</label><div><i id="h-hp"></i></div></div>
-      <div class="bar nitro"><label>NITRO</label><div><i id="h-nitro"></i></div></div>
+      <div class="bar hp"><label id="h-hp-label">HULL</label><div><i id="h-hp"></i></div></div>
+      <div class="bar nitro"><label id="h-nitro-label">NITRO</label><div><i id="h-nitro"></i></div></div>
       <div class="powers" id="h-powers"></div>
     </div>
     <div class="hud-br">
       <div class="speedo"><b id="h-speed">0</b><span>KM/H</span></div>
     </div>
+    <div class="objective" id="h-obj"><div class="obj-top"><span id="h-obj-step"></span><b id="h-obj-clock"></b></div><div id="h-obj-label"></div><div id="h-obj-prog"></div></div>
+    <div class="edge-arrow" id="h-arrow">➤</div>
+    <div class="weapon" id="h-weapon"></div>
+    <div class="hint" id="h-hint"></div>
+    <div class="reticle" id="reticle"></div>
     <div class="bust" id="h-bust"><label>BUSTED</label><div><i id="h-bust-bar"></i></div></div>
     <div class="combo" id="h-combo"></div>
     <div class="fps" id="fps"></div>
@@ -129,6 +162,21 @@
       <button class="btn big primary" data-action="resume">RESUME</button>
       <button class="btn" data-action="restart">RESTART</button>
       <button class="btn" data-action="quit">MAIN MENU</button>
+    </div>
+  </div>
+
+  <!-- mission complete -->
+  <div id="win" class="screen dim">
+    <div class="panel center-panel over-panel win-panel">
+      <h1 class="win-title">MISSION COMPLETE</h1>
+      <div class="go-sub" id="win-name"></div>
+      <div class="win-stars" id="win-stars"></div>
+      <div class="go-stats" id="win-stats"></div>
+      <div class="go-earn"><span class="coin-ico"></span> +<b id="win-coins">0</b></div>
+      <div class="go-best show" id="win-unlock"></div>
+      <button class="btn big primary" data-action="next-mission" id="win-next">NEXT MISSION</button>
+      <button class="btn" data-action="restart">REPLAY</button>
+      <button class="btn" data-action="story">MISSIONS</button>
     </div>
   </div>
 
