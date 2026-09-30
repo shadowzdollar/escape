@@ -31,6 +31,8 @@ import { CARS, MAPS, WANTED, COIN_VALUE, CITY } from './config.js';
 import { City, cutout } from './city.js';
 import { Vehicle, collideStatic, collidePair } from './vehicle.js';
 import { createCar } from './carModels.js';
+import { createTank } from './tankModel.js';
+import { BOATS, addWeaponVisuals } from './warVehicles.js';
 import { Police } from './police.js';
 import { Traffic } from './traffic.js';
 import { Pickups } from './pickups.js';
@@ -39,7 +41,7 @@ import { Humans } from './humans.js';
 import { Avatar } from './avatar.js';
 import { Combat, WEAPONS } from './combat.js';
 import { MissionRun, MISSIONS, TROPHIES } from './campaign.js';
-import { Boats, WATER_Y } from './boats.js';
+import { Boats, WATER_Y, createBoat } from './boats.js';
 import { Military } from './military.js';
 import { Cinematic } from './cinematic.js';
 import { Effects } from './effects.js';
@@ -383,14 +385,15 @@ class Game {
 
   // ------------------------------------------------------------------ showroom
   showroomCar(carId) {
-    const def = CARS.find((c) => c.id === carId) || CARS[0];
+    const def = CARS.find((c) => c.id === carId) || BOATS.find((b) => b.id === carId) || CARS[0];
     if (this.showcase) {
       this.scene.remove(this.showcase.root);
       this.showcase.dispose();
     }
     const color = this.save.colors[def.id] || def.color;
-    this.showcase = createCar(def.model, { color, accent: def.accent, premium: true, neonColor: '#35f2ff' });
-    this.showcase.root.position.set(-4, 0, 0);
+    this.showcase = def.boat ? createBoat(def.kind) : def.model === 'tank' ? createTank() : createCar(def.model, { color, accent: def.accent, premium: true, neonColor: '#35f2ff' });
+    if (def.weapons?.length) addWeaponVisuals(this.showcase, def);
+    this.showcase.root.position.set(-4, def.boat ? 0.45 : 0, 0);
     this.showcase.root.rotation.y = 0.5;
     this.showcase.beam.visible = this.isNight;
     this.showcase.root.traverse((o) => { if (o.isMesh) o.castShadow = true; });
@@ -435,6 +438,7 @@ class Game {
     this.boats.reset();
     this.vehicles.clear();
     this.abandoned = [];
+    this.doorAnim = null;
     this.avatar.hide();
     this.avatar.reset();
     this.mission?.dispose();
@@ -465,7 +469,9 @@ class Game {
     this.clearWorld();
     const def = CARS.find((c) => c.id === this.save.selected) || CARS[0];
     const color = this.save.colors[def.id] || def.color;
-    const p = this.player = this.car = new Vehicle({ model: def.model, stats: def.stats, color, accent: def.accent, kind: 'player', premium: true, neonColor: '#35f2ff' });
+    const p = this.player = this.car = new Vehicle({ model: def.model, stats: def.stats, color, accent: def.accent, kind: 'player', premium: true, neonColor: '#35f2ff', car: def.model === 'tank' ? createTank() : null });
+    p.owned = true;
+    this.armVehicle(p, def);
     p.car.root.traverse((o) => { if (o.isMesh && o !== p.car.shadow && o !== p.car.beam) o.castShadow = true; });
     const bank = this.city.bank;
     if (bank) p.place(bank.carX, bank.carZ, 0); else p.place(-4, -10, 0);
@@ -485,6 +491,9 @@ class Game {
     this.camTarget = new THREE.Vector3(p.x, 0, p.z);
     this.audio.intensity = 0;
     this.boats.populate();
+    // your own boat from the garage waits at the nearest river bank
+    const boatDef = BOATS.find((b) => b.id === this.save.selectedBoat) || BOATS[0];
+    this.armVehicle(this.boats.spawnOwned(boatDef, p.x, p.z), boatDef);
     // pre-populate some traffic around the start (kept clear of the bank)
     for (let k = 0; k < 10; k++) this.traffic.spawn(70, 180);
     if (intro && bank) {
@@ -492,6 +501,27 @@ class Game {
       this.ui.show();
       this.cine.start();
     } else this.beginChase();
+  }
+
+  // Mount a vehicle's weapon loadout (garage war vehicles, armed boats, stolen tanks).
+  armVehicle(v, def) {
+    if (!def.weapons?.length) return v;
+    v.weapons = def.weapons;
+    v.wIdx = 0;
+    v.wv = addWeaponVisuals(v.car, def);
+    return v;
+  }
+
+  // Player tank visuals: crawling tracks, barrel recoil and muzzle flash.
+  animateOwnTank(v, dt) {
+    const c = v.car;
+    if (!c.linksA) return;
+    const crawl = Math.floor((v.wheelSpin * c.spec.wr) / (c.pitch / 2));
+    c.linksA.visible = (crawl & 1) === 0; c.linksB.visible = !c.linksA.visible;
+    v.recoil = Math.max(0, (v.recoil || 0) - dt * 5);
+    c.barrel.position.z = 2.25 - v.recoil * 0.7;
+    v.gunFlash = Math.max(0, (v.gunFlash || 0) - dt);
+    c.muzzleMat.opacity = v.gunFlash / 0.12;
   }
 
   beginChase() {
@@ -550,7 +580,7 @@ class Game {
       const k = 1 - dd / r;
       const nx = (v.x - x) / (dd || 1), nz = (v.z - z) / (dd || 1);
       v.applyImpulse(nx * 18 * k * v.mass, nz * 18 * k * v.mass, x, z);
-      let dmg = power * k * (v.copType === 'tank' ? 0.3 : 1);
+      let dmg = power * k * (v.model === 'tank' ? 0.3 : 1);
       if (v === p) {
         if (this.powerTimers.shield > 0 || this.state !== 'playing') dmg = 0;
         if (dmg > 8) this.ui.flash('hit');
@@ -736,10 +766,15 @@ class Game {
     let x = v.x + c * (v.W / 2 + 0.8), z = v.z - s * (v.W / 2 + 0.8);
     if (this.city.pointBlocked(x, z, 0.4)) { x = v.x - c * (v.W / 2 + 0.8); z = v.z + s * (v.W / 2 + 0.8); }
     this.avatar.spawn(x, z, v.heading, v.vx * 0.5, v.vz * 0.5);
+    const av0 = this.avatar;
     if (bail || sp > 14) {
       this.avatar.knock(v.vx, v.vz, 1.1);
       if (!bail) { this.avatar.damage(Math.min(22, sp * 0.45)); this.ui.toast('BAILED OUT!', 'warn'); }
-    } else this.audio.doorSlam?.();
+    } else if (!v.boat && v.model !== 'tank') {
+      this.endDoor();
+      this.doorAnim = { v, t: 0, mode: 'exit', door: this.makeDoor(v) };
+      av0.heading = v.heading + Math.PI / 2;
+    }
     v.kind = 'empty';
     v.input = { throttle: 0, brake: 0, steer: 0, handbrake: false, nitro: false };
     v.nitroActive = false;
@@ -764,17 +799,89 @@ class Game {
     }
     if (!best) { this.ui.toast('NO VEHICLE IN REACH'); return false; }
     const v = best;
-    const s = Math.sin(v.heading), c = Math.cos(v.heading);
-    if (v.kind === 'traffic') {
-      const i = this.traffic.cars.indexOf(v); if (i >= 0) this.traffic.cars.splice(i, 1);
-      // the driver is dragged out and runs off
-      const d = this.people.make(v.x - c * (v.W / 2 + 0.9), v.z + s * (v.W / 2 + 0.9), { heading: v.heading });
-      this.people.flee(d, av.x, av.z, 5);
+    // hold the vehicle still while we get in
+    if (v.kind === 'traffic') { const i = this.traffic.cars.indexOf(v); if (i >= 0) this.traffic.cars.splice(i, 1); v.kind = 'held'; }
+    else if (v.kind === 'police') { const i = this.police.cops.indexOf(v); if (i >= 0) this.police.cops.splice(i, 1); v.kind = 'heldPolice'; }
+    v.input = { throttle: 0, brake: 1, steer: 0, handbrake: false, nitro: false, hold: true };
+    if (v.boat || v.model === 'tank') { this.commitEnter(v); return true; }
+    // walk to the driver's door, open it, climb in, shut it
+    this.doorAnim = { v, t: 0, phase: 'walk', mode: 'enter', door: this.makeDoor(v) };
+    av.state = 'busy';
+    return true;
+  }
+
+  // A door panel (paint + window) hinged at its front edge on the driver's side (+x).
+  makeDoor(v) {
+    const s = v.car.spec;
+    if (!s.cowlZ) return null;
+    const zf = Math.min(s.cowlZ + 0.05, s.fa - s.wr - 0.1), len = Math.min(1.25, zf - (s.ra + s.wr + 0.2));
+    const belt = (s.hoodY + s.deckY) / 2;
+    const g = new THREE.Group();
+    const doorMat = new THREE.MeshStandardMaterial({ color: v.car.paintMat.color.clone(), roughness: 0.34, metalness: 0.3 });
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(0.07, belt - s.yb - 0.1, len), doorMat);
+    panel.position.set(0, (belt + s.yb + 0.1) / 2, -len / 2);
+    const win = new THREE.Mesh(new THREE.BoxGeometry(0.04, (s.roofY - 0.12) - belt, len * 0.9), new THREE.MeshStandardMaterial({ color: 0x1b2a3a, roughness: 0.05, metalness: 0.6, transparent: true, opacity: 0.75 }));
+    win.position.set(0, (s.roofY - 0.12 + belt) / 2, -len / 2 - len * 0.05);
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.04, 0.18), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+    handle.position.set(0.05, belt - 0.12, -len + 0.25);
+    g.add(panel, win, handle);
+    g.position.set(s.W / 2 + 0.02, 0, zf);
+    v.car.body.add(g);
+    return g;
+  }
+
+  // Door animation + the walk to the car. Runs every frame while active.
+  updateDoor(dt) {
+    const d = this.doorAnim;
+    if (!d) return;
+    const v = d.v, av = this.avatar, s = Math.sin(v.heading), c = Math.cos(v.heading);
+    d.t += dt;
+    const doorPos = { x: v.x + c * (v.W / 2 + 0.75), z: v.z - s * (v.W / 2 + 0.75) };
+    const ang = (a) => { if (d.door) d.door.rotation.y = -a; };
+    if (d.mode === 'enter') {
+      if (d.phase === 'walk') {
+        const dx = doorPos.x - av.x, dz = doorPos.z - av.z, dist = Math.hypot(dx, dz);
+        av.x += (dx / (dist || 1)) * Math.min(dist, 4.5 * dt); av.z += (dz / (dist || 1)) * Math.min(dist, 4.5 * dt);
+        av.heading = Math.atan2(dx, dz); av.vx = av.vz = 0; av.sync();
+        if (av.person) av.person.speed = dist > 0.2 ? 3 : 0;
+        if (dist < 0.25 || d.t > 1.2) { d.phase = 'open'; d.t = 0; this.audio.doorSlam?.(); }
+      } else if (d.phase === 'open') {
+        ang(Math.min(1, d.t / 0.25) * 1.15);
+        av.heading = v.heading + Math.PI / 2; if (av.person) av.person.speed = 0; av.sync();
+        if (d.t > 0.3 && !d.pulled) {
+          d.pulled = true;
+          if (v.kind === 'held') {
+            // the driver is dragged out and runs off
+            const drv = this.people.make(doorPos.x + c * 0.6, doorPos.z - s * 0.6, { heading: v.heading - Math.PI / 2 });
+            this.people.knock(drv, c * 4, -s * 4, 0.6);
+          }
+        }
+        if (d.t > 0.55) { this.commitEnter(v); d.phase = 'close'; d.t = 0; }
+      } else if (d.phase === 'close') {
+        ang((1 - Math.min(1, d.t / 0.25)) * 1.15);
+        if (d.t > 0.3) { this.audio.doorSlam?.(); this.endDoor(); }
+      }
+    } else {
+      // exiting: door swings open, you step out, it closes behind you
+      const a = d.t < 0.25 ? d.t / 0.25 : d.t < 0.6 ? 1 : 1 - Math.min(1, (d.t - 0.6) / 0.25);
+      ang(a * 1.15);
+      if (d.t > 0.9) { this.audio.doorSlam?.(); this.endDoor(); }
+    }
+  }
+
+  endDoor() {
+    const d = this.doorAnim;
+    if (d?.door) { d.door.parent?.remove(d.door); d.door.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); o.material.dispose(); } }); }
+    this.doorAnim = null;
+  }
+
+  commitEnter(v) {
+    const av = this.avatar;
+    if (v.kind === 'held') {
       this.heat += 3;
       this.ui.toast('CARJACKED!', 'warn');
       this.save.totals.carsStolen = (this.save.totals.carsStolen || 0) + 1;
-    } else if (v.kind === 'police') {
-      const i = this.police.cops.indexOf(v); if (i >= 0) this.police.cops.splice(i, 1);
+    } else if (v.kind === 'heldPolice') {
       this.heat += v.copType === 'tank' ? 45 : 15;
       this.ui.toast(v.copType === 'tank' ? 'YOU STOLE A TANK!' : 'STOLE A POLICE CAR!', 'bad');
       this.save.totals.carsStolen = (this.save.totals.carsStolen || 0) + 1;
@@ -786,7 +893,9 @@ class Game {
     v.input = { throttle: 0, brake: 0, steer: 0, handbrake: false, nitro: false };
     v.disabledTimer = 0;
     v.speedMul = 1;
-    if (v.stats.speed < 34 && !v.boat) v.stats = { ...v.stats, speed: 34, accel: Math.max(v.stats.accel, 20), handling: Math.max(v.stats.handling, 2.5) };
+    if (v.model === 'tank' && !v.weapons) this.armVehicle(v, { model: 'tank', weapons: ['cannon', 'mg'] });
+    if (v.weapons && !this.armedHint) { this.armedHint = true; this.ui.toast('ARMED: CLICK / J / JOYSTICK R FIRES · Q SWITCHES', 'good'); }
+    if (v.stats.speed < 34 && !v.boat && !v.owned) v.stats = { ...v.stats, speed: 34, accel: Math.max(v.stats.accel, 20), handling: Math.max(v.stats.handling, 2.5) };
     v.car.beam.visible = this.isNight;
     this.car = v;
     this.player = v;
@@ -1083,6 +1192,10 @@ class Game {
       if (this.state === 'playing') this.ui.toast(this.save.settings.camera === 'top' ? 'TOP-DOWN CAMERA' : 'CHASE CAMERA');
     }
     if (I.wasPressed('KeyM')) this.setSetting('sound', !this.save.settings.sound);
+    if (I.wasPressed('KeyH')) {
+      if (this.state === 'playing') { this.pause(); this.ui.openControls(); } else if (this.ui.current.includes('controls')) this.ui.closeControls();
+      else if (this.state === 'menu' || this.state === 'paused') this.ui.openControls();
+    }
     if (I.wasPressed('Enter')) {
       if (this.state === 'menu') this.startRun({ intro: this.save.settings.intro !== false });
       else if (this.state === 'over' && document.getElementById('gameover').classList.contains('show')) this.startRun();
@@ -1111,13 +1224,18 @@ class Game {
     for (const k of Object.keys(this.powerTimers)) this.powerTimers[k] = Math.max(0, this.powerTimers[k] - dt);
 
     // get in / out of vehicles
-    if (playing) {
+    this.updateDoor(dt);
+    if (playing && !(this.doorAnim && this.doorAnim.mode === 'enter')) {
       const I = this.input, J = this.joy.events;
       const toggle = I.wasPressed('KeyF') || I.wasPressed('KeyE')
-        || (this.car && J.has('RHOLD') && this.car.input.throttle === 0)
+        || (this.car && !this.car.weapons && J.has('RHOLD') && this.car.input.throttle === 0)
+        || (this.car && this.car.weapons && J.has('LHOLD') && this.car.speed < 2)
         || (!this.car && J.has('R'));
       if (toggle) { if (this.car) this.exitCar(); else this.tryEnterCar(); }
-      if (!this.car && I.wasPressed('KeyQ')) this.ui.toast(WEAPONS[this.combat.nextWeapon()].name);
+      if (I.wasPressed('KeyQ')) {
+        if (!this.car) this.ui.toast(WEAPONS[this.combat.nextWeapon()].name);
+        else if (this.car.weapons?.length > 1) this.ui.toast(this.combat.nextVehicleWeapon(this.car));
+      }
     }
 
     if (this.car) {
@@ -1126,13 +1244,24 @@ class Game {
       p.input.steer = inp.steer; p.input.throttle = inp.throttle; p.input.brake = inp.brake; p.input.handbrake = inp.handbrake;
       // nitro
       const wasN = p.nitroActive;
-      p.nitroActive = playing && inp.nitro && this.nitro > 0.01 && inp.throttle > 0;
+      const joyTrigger = p.weapons && this.joy.active && this.joy.raw.rb === 1; // armed: joystick R fires, not nitro
+      p.nitroActive = playing && inp.nitro && !joyTrigger && this.nitro > 0.01 && inp.throttle > 0;
       if (p.nitroActive) this.nitro = Math.max(0, this.nitro - dt * 0.3);
       else this.nitro = Math.min(1, this.nitro + dt * 0.018);
       if (p.nitroActive && !wasN) this.audio.nitroStart();
       p.gripMul = this.powerTimers.spikes > 0 ? 0.5 : 1;
       p.speedMul = this.powerTimers.spikes > 0 ? 0.72 : 1;
       if (intro && this.cine.hold) { p.speedMul = 0.001; p.vx *= 0.8; p.vz *= 0.8; }
+      // armed vehicle: aim (mouse / right stick / auto-lock) and fire
+      if (p.weapons && !intro) {
+        const wi = playing ? this.input.readWeapon(this.screenForward()) : { fire: false, aimYaw: null, manual: false };
+        if (wi.aimYaw === null && this.input.mouseActive()) {
+          const pt = this.mouseGround(1);
+          if (pt) { wi.aimYaw = Math.atan2(pt.x - p.x, pt.z - p.z); wi.manual = true; }
+        }
+        this.combat.vehicleWeapons(p, wi, dt);
+      }
+      if (p.model === 'tank') this.animateOwnTank(p, dt);
     } else {
       // on foot: move, jump, sprint, aim and shoot
       const av = this.avatar;
@@ -1146,7 +1275,7 @@ class Game {
       av.firing = Math.max(0, av.firing - dt);
       av.aimYaw = manual || av.firing > 0 ? aimYaw : null;
       if (fi.fire && playing && av.state === 'foot' && !av.swimming) this.combat.playerShoot(av, { yaw: aimYaw, manual });
-      av.update(dt, fi);
+      if (av.state !== 'busy') av.update(dt, fi);
       this.nitro = av.stamina; // the blue bar shows stamina on foot
     }
     const p = this.player;

@@ -28,6 +28,7 @@
       <button class="btn" data-action="garage">GARAGE</button>
       <button class="btn" data-action="maps">MAPS</button>
       <button class="btn" data-action="trophies">TROPHIES</button>
+      <button class="btn" data-action="controls">CONTROLS</button>
       <button class="btn" data-action="settings">SETTINGS</button>
       <div class="menu-meta">
         <div><b id="menu-map">METRO CITY</b></div>
@@ -37,6 +38,7 @@
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows: drive</div>
         <div><kbd>Space</kbd> handbrake drift · <kbd>Shift</kbd> nitro</div>
         <div><kbd>C</kbd> camera · <kbd>Esc</kbd> pause · <kbd>M</kbd> mute</div>
+        <div><kbd>H</kbd> show <b>all</b> controls</div>
       </div>
       <div class="joy-badge" id="joy-badge" data-action="settings">🎮 NO CONTROLLER</div>
     </div>
@@ -74,12 +76,14 @@
   <div id="garage" class="screen">
     <div class="panel garage-panel">
       <div class="panel-head"><button class="btn icon" data-action="back">←</button><h2>GARAGE</h2></div>
+      <div class="seg garage-tabs" id="garage-tabs"><button data-tab="cars">CARS</button><button data-tab="war">WAR VEHICLES</button><button data-tab="boats">BOATS</button></div>
       <div class="car-nav">
         <button class="btn icon" data-action="prev-car">‹</button>
         <div class="car-title"><h1 id="car-name">BOLT</h1><p id="car-tag"></p></div>
         <button class="btn icon" data-action="next-car">›</button>
       </div>
       <div class="stats" id="car-stats"></div>
+      <div class="car-weapons" id="car-weapons"></div>
       <div class="paints" id="paints"></div>
       <button class="btn big primary" id="car-action">SELECTED</button>
     </div>
@@ -155,12 +159,41 @@
     </div>
   </div>
 
+  <!-- controls reference (menu, pause, or H in game) -->
+  <div id="controls" class="screen dim">
+    <div class="panel controls-panel">
+      <div class="panel-head"><button class="btn icon" data-action="controls-back">←</button><h2>CONTROLS</h2><span class="trophy-count">H: open / close</span></div>
+      <div class="controls-grid">
+        <section><h3>DRIVING</h3>
+          <p><kbd>W</kbd>/<kbd>↑</kbd> accelerate</p><p><kbd>S</kbd>/<kbd>↓</kbd> brake / reverse</p><p><kbd>A</kbd><kbd>D</kbd> / <kbd>←</kbd><kbd>→</kbd> steer</p>
+          <p><kbd>Space</kbd> handbrake drift</p><p><kbd>Shift</kbd> nitro</p><p><kbd>F</kbd> or <kbd>E</kbd> get out (stop first, or bail at speed)</p></section>
+        <section><h3>ON FOOT</h3>
+          <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> run (camera-relative)</p><p><kbd>Shift</kbd> sprint (uses stamina)</p><p><kbd>Space</kbd> jump</p>
+          <p><kbd>F</kbd>/<kbd>E</kbd> open the door and get in / carjack</p><p><kbd>Mouse</kbd> aim · <kbd>Click</kbd>/<kbd>J</kbd>/<kbd>Ctrl</kbd> shoot</p><p><kbd>Q</kbd> switch gun (pistol · SMG · rockets)</p></section>
+        <section><h3>SWIMMING &amp; BOATS</h3>
+          <p>Walk into the river to swim</p><p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> front crawl · <kbd>Shift</kbd> fast crawl</p><p><kbd>F</kbd> climb into a boat next to you</p>
+          <p>Your garage boat is moored at the river: <span class="mk">▲</span> on the minimap</p><p>Boats drive like cars: <kbd>W</kbd><kbd>S</kbd><kbd>A</kbd><kbd>D</kbd></p></section>
+        <section><h3>WAR VEHICLES &amp; ARMED BOATS</h3>
+          <p><kbd>Click</kbd>/<kbd>J</kbd>/<kbd>Ctrl</kbd> fire</p><p><kbd>Mouse</kbd> aim the turret, or it auto-locks ahead</p><p><kbd>Q</kbd> switch weapon (e.g. cannon ↔ machine gun)</p>
+          <p>Buy them in GARAGE → WAR VEHICLES / BOATS</p><p>Steal a police tank and its cannon is yours</p></section>
+        <section><h3>GENERAL</h3>
+          <p><kbd>Esc</kbd>/<kbd>P</kbd> pause</p><p><kbd>C</kbd> top-down / chase camera</p><p><kbd>M</kbd> mute</p><p><kbd>H</kbd> this screen</p><p><kbd>Enter</kbd> quick start · <kbd>R</kbd> retry after a run</p></section>
+        <section><h3>ARDUINO JOYSTICK</h3>
+          <p><b>Left stick</b> steer · <b>Right stick</b> gas / brake</p><p>On foot: <b>left stick</b> run · <b>right stick</b> aim + shoot</p><p><b>R click</b> nitro · on foot: get in</p>
+          <p><b>Hold R</b> (stopped) get out</p><p><b>L click</b> handbrake · on foot: jump</p><p>Armed vehicle: <b>R</b> fires (auto-aim) · <b>hold L</b> (stopped) get out</p><p><b>Hold L+R</b> pause · sticks navigate menus</p></section>
+        <section><h3>GAMEPAD</h3>
+          <p><b>RT/LT</b> gas / brake · <b>Left stick</b> steer</p><p><b>A</b> handbrake · <b>B</b>/<b>RB</b> nitro</p><p><b>X</b> fire · <b>Right stick</b> aim + fire</p><p><b>Y</b> camera · <b>Start</b> pause</p></section>
+      </div>
+    </div>
+  </div>
+
   <!-- pause -->
   <div id="pause" class="screen dim">
     <div class="panel center-panel">
       <h2>PAUSED</h2>
       <button class="btn big primary" data-action="resume">RESUME</button>
       <button class="btn" data-action="restart">RESTART</button>
+      <button class="btn" data-action="controls">CONTROLS</button>
       <button class="btn" data-action="quit">MAIN MENU</button>
     </div>
   </div>

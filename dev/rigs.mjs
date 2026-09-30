@@ -4,7 +4,7 @@ const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args
 const p = await b.newPage({ viewport: { width: 1280, height: 720 } });
 const errs = []; p.on('pageerror', (e) => errs.push(e.message + e.stack));
 p.on('console', (m) => { if (m.type() === 'warning' || m.type() === 'error') errs.push(m.text()); });
-await p.goto('http://localhost:5174/', { waitUntil: 'domcontentloaded', timeout: 90000 });
+await p.goto('http://localhost:5180/', { waitUntil: 'domcontentloaded', timeout: 90000 });
 await p.waitForFunction(() => window.game && window.game.state === 'menu' && window.game.humans.ready, null, { timeout: 120000 });
 const st = await p.evaluate(() => {
   const g = window.game; g.frozen = true;

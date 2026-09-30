@@ -3,7 +3,7 @@ const [out] = process.argv.slice(2);
 const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 page.on('pageerror', (e) => console.log(e.message));
-await page.goto('http://localhost:5174/', { waitUntil: 'load' });
+await page.goto('http://localhost:5180/', { waitUntil: 'load' });
 await page.waitForFunction(() => window.game && window.game.state === 'menu', null, { timeout: 90000 });
 await page.evaluate(() => window.game.selectMap('desert'));
 await page.waitForFunction(() => window.game.state === 'menu', null, { timeout: 90000 });

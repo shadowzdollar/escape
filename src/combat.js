@@ -5,6 +5,7 @@
 // auto-aim at the nearest threat in front of you.
 import * as THREE from 'three';
 import { clamp, wrapAngle } from './utils.js';
+import { VEHICLE_WEAPONS, aimTurret } from './warVehicles.js';
 
 export const WEAPONS = {
   pistol: { name: 'PISTOL', rate: 3.2, dmg: 16, spread: 0.035, speed: 125, auto: false },
@@ -111,13 +112,67 @@ export class Combat {
     return true;
   }
 
-  launchRocket(x, y, z, dx, dy, dz, target, W, owner) {
+  // opts: speed (launch), straight (tank shell: no homing, constant speed), turn (homing rate)
+  launchRocket(x, y, z, dx, dy, dz, target, W, owner, { speed = 30, straight = false, turn = 5 } = {}) {
     const mesh = new THREE.Mesh(this.rocketGeo, this.rocketMat);
     mesh.position.set(x, y, z);
     this.game.scene.add(mesh);
     const n = Math.hypot(dx, dy, dz) || 1;
-    this.rockets.push({ mesh, vx: dx / n * 30, vy: dy / n * 30, vz: dz / n * 30, target, life: 4, dmg: W.dmg, radius: W.radius, owner });
-    this.game.audio.missile?.();
+    this.rockets.push({ mesh, vx: dx / n * speed, vy: dy / n * speed, vz: dz / n * speed, target, life: straight ? 1.6 : 4, dmg: W.dmg, radius: W.radius, owner, straight, speed, turn });
+    if (!straight) this.game.audio.missile?.();
+  }
+
+  // Player-driven armed vehicle (garage war vehicles, armed boats, a stolen tank).
+  // wi = { fire, aimYaw, manual }: aim with the mouse / right stick, or auto-lock ahead.
+  vehicleWeapons(car, wi, dt) {
+    const g = this.game, wv = car.wv;
+    const id = car.weapons[car.wIdx || 0], W = VEHICLE_WEAPONS[id];
+    car.wCool = Math.max(0, (car.wCool || 0) - dt);
+    const yaw0 = wi.aimYaw ?? car.heading;
+    const range = W.shell ? 95 : W.rocket ? 80 : 62;
+    const t = this.pickTarget(car.x, car.z, yaw0, wi.manual ? 0.35 : (W.cone || 0.6), range, !!(W.rocket || W.shell));
+    this.target = t;
+    const want = t ? Math.atan2(t.x - car.x, t.z - car.z) : yaw0;
+    let fireYaw = car.heading, err = 0;
+    if (W.turret && wv.turret) {
+      err = aimTurret(wv.turret, car.heading, want, dt, W.shell ? 1.7 : 5);
+      fireYaw = car.heading + wv.turret.rotation.y;
+    }
+    if (!wi.fire || car.wCool > 0 || g.state !== 'playing') return;
+    if (W.shell && err > 0.15) return; // the big gun waits until it is lined up
+    let mz = wv.muzzles[id] || null;
+    if (W.rocket && wv.pods.length) { car.podI = ((car.podI || 0) + 1) % wv.pods.length; mz = wv.pods[car.podI].userData.muzzle; }
+    const pos = mz ? mz.getWorldPosition(this.v) : this.v.set(car.x + Math.sin(fireYaw) * (car.L / 2 + 0.5), 1.2, car.z + Math.cos(fireYaw) * (car.L / 2 + 0.5));
+    const x = pos.x, y = Math.max(pos.y, car.boat ? 0.7 : 0.5), z = pos.z;
+    let dx = Math.sin(fireYaw), dz = Math.cos(fireYaw), dy = 0;
+    if (t && (!W.turret || err < 0.25)) {
+      const d = Math.hypot(t.x - x, t.z - z) || 1;
+      dx = (t.x - x) / d; dz = (t.z - z) / d;
+      dy = car.boat && t.kind !== 'heli' ? 0 : (t.y - y) / d;
+    }
+    if (id === 'mg') {
+      this.fireBullet(x, y, z, dx, dy, dz, { speed: W.speed, dmg: W.dmg, spread: W.spread, owner: 'player' });
+      g.audio.gunshot?.('mg');
+      g.heat += 0.04;
+    } else if (W.shell) {
+      this.launchRocket(x, y, z, dx, dy, dz, null, W, car, { speed: 115, straight: true });
+      if (car.car.muzzleMat) { car.gunFlash = 0.12; car.recoil = 1; }
+      car.vx -= dx * 1.2; car.vz -= dz * 1.2;
+      g.audio.cannon?.(0);
+      g.shake = Math.min(1.2, g.shake + 0.35);
+      g.effects.explosionSmall?.(x, y, z);
+      g.heat += 1.2;
+    } else {
+      this.launchRocket(x, y, z, dx, dy, dz, t, W, car, { speed: 38, turn: id === 'missiles' ? 8 : 4 });
+      g.heat += 0.6;
+    }
+    car.wCool = 1 / W.rate;
+  }
+
+  // Q in an armed vehicle: next weapon of its loadout.
+  nextVehicleWeapon(car) {
+    car.wIdx = ((car.wIdx || 0) + 1) % car.weapons.length;
+    return VEHICLE_WEAPONS[car.weapons[car.wIdx]].name;
   }
 
   // Police officer on foot shoots at the player (less accurate when you move fast).
@@ -233,12 +288,12 @@ export class Combat {
       const r = this.rockets[i];
       r.life -= dt;
       const t = r.target;
-      const sp = Math.min(75, Math.hypot(r.vx, r.vy, r.vz) + 60 * dt);
-      if (t) {
+      const sp = r.straight ? r.speed : Math.min(75, Math.hypot(r.vx, r.vy, r.vz) + 60 * dt);
+      if (t && !r.straight) {
         const tx = t.kind === 'heli' ? t.ref.x : t.ref.x, ty = t.kind === 'heli' ? t.ref.y : 1, tz = t.ref.z;
         const dx = tx - r.mesh.position.x, dy = ty - r.mesh.position.y, dz = tz - r.mesh.position.z;
         const n = Math.hypot(dx, dy, dz) || 1;
-        const k = Math.min(1, dt * 5);
+        const k = Math.min(1, dt * (r.turn || 5));
         r.vx += (dx / n * sp - r.vx) * k; r.vy += (dy / n * sp - r.vy) * k; r.vz += (dz / n * sp - r.vz) * k;
       }
       const n = Math.hypot(r.vx, r.vy, r.vz) || 1;

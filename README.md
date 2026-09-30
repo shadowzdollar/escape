@@ -21,6 +21,8 @@ npm run build      # production build in dist/
 | Sprint / jump | Shift / Space | Full left stick / click left |
 | Aim + shoot | Mouse + left click, or J (auto-aim) | Right stick (twin-stick aim and fire) |
 | Switch weapon | Q | |
+| Fire vehicle weapons (war vehicles, armed boats, stolen tank) | Left click / J / Ctrl, mouse aims the turret | Right click (auto-aim); hold left click when stopped to get out |
+| All controls in-game | H (also CONTROLS in the menu and pause screen) | |
 | Camera / pause / mute | C / Esc / M | Hold both clicks = pause |
 
 ## Features
@@ -28,6 +30,9 @@ npm run build      # production build in dist/
 - **Story mode:** 5 missions (The Getaway, Shake Them Off, Neon Heist, Cold War, Pharaoh's Escape) with objectives, timers, capped wanted levels, star ratings, prize money, car unlocks, and each mission unlocking the next. 13 trophies.
 - **On foot:** jump out at any speed (bailing out at speed makes you tumble), carjack any car (traffic, police, even tanks), run, sprint on stamina, jump, and swim the river. When your car is wrecked you bail out and keep going.
 - **Combat:** pistol, SMG and rocket launcher on foot; car-mounted machine guns and auto-lock rockets from power-ups. Shoot officers, police cars and tanks, and shoot helicopters out of the sky. Officers leave their cars, chase you with guns and arrest you if they catch you.
+- **War vehicles (Garage → WAR VEHICLES):** RHINO armoured 4x4 with a roof machine-gun turret, WARHOG technical with a rocket pod and machine gun, GHOST interceptor with homing missiles, and the GOLIATH main battle tank (cannon + coax gun, 1200 armour). Turrets follow the mouse or lock on to targets ahead. A stolen police tank gets a working cannon too.
+- **Boats (Garage → BOATS):** speedboat (free), PATROL BOAT with a bow machine gun, and GUNBOAT with twin rocket pods and a deck gun. The boat you pick waits at the nearest river bank (cyan ▲ on the minimap).
+- **Movement:** faster running (jog 7.5 m/s, sprint 11 m/s), a front-crawl swim with strokes and splashes, and animated car doors that open when you get in, drag the driver out, or step out.
 - **Water:** steal a docked speedboat, get chased by police boats, and see feluccas on the Nile.
 - **Giza map:** sandstone city with domes and minarets, three stepped pyramids, the Sphinx, dunes, and an airstrip with the escape plane.
 - **24 cars:** 12 new real-world-inspired cars (fictional names), modern and classic, with chrome bumpers, tail fins and two-tone paint.

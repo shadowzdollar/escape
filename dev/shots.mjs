@@ -6,7 +6,7 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 const logs = [];
 page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') logs.push(`[${m.type()}] ${m.text()}`); });
 page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}\n${e.stack}`));
-await page.goto('http://localhost:5174/', { waitUntil: 'load' });
+await page.goto('http://localhost:5180/', { waitUntil: 'load' });
 await page.waitForFunction(() => window.game && window.game.state === 'menu', null, { timeout: 90000 });
 const scen = (process.env.SCEN || 'cutout,garage,maps,over,desert,snow').split(',');
 for (const s of scen) {

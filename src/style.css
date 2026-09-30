@@ -274,3 +274,17 @@ body.is-touch .controls-hint { display: none; }
 .win-stars i { font-style: normal; }
 .win-stars i.on { color: var(--accent); text-shadow: 0 0 18px rgba(255,204,0,.7); }
 .map-giza { background: linear-gradient(160deg, #f6d99a, #d9a45c 55%, #7a4a1f); }
+
+/* garage tabs + weapons line */
+.garage-tabs { justify-content: stretch; }
+.garage-tabs button { flex: 1; }
+.car-weapons { font-family: var(--title); letter-spacing: 1px; font-size: 13px; color: var(--muted); }
+.car-weapons b { color: #ff9f1c; margin-right: 10px; }
+
+/* controls reference */
+.controls-panel { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(1100px, 94vw); max-height: 90vh; overflow-y: auto; }
+.controls-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px 22px; }
+.controls-grid section { background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.controls-grid h3 { font-family: var(--title); font-size: 14px; letter-spacing: 2px; color: var(--accent); margin: 0 0 8px; }
+.controls-grid p { margin: 5px 0; font-size: 14px; color: var(--ink); line-height: 1.5; }
+.controls-grid .mk { color: #35f2ff; }

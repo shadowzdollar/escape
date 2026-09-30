@@ -3,7 +3,7 @@ const [out] = process.argv.slice(2);
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-angle=vulkan', '--enable-features=Vulkan'] });
 const p = await b.newPage({ viewport: { width: 1280, height: 720 } });
 const errs = []; p.on('pageerror', (e) => errs.push(e.message + e.stack));
-await p.goto('http://localhost:5174/', { waitUntil: 'domcontentloaded', timeout: 90000 });
+await p.goto('http://localhost:5180/', { waitUntil: 'domcontentloaded', timeout: 90000 });
 await p.waitForFunction(() => window.game && window.game.state === 'menu' && window.game.humans.ready, null, { timeout: 120000 });
 // 1) a chatting group, spawned right next to the camera focus
 await p.evaluate(() => {

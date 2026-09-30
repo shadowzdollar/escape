@@ -1,5 +1,7 @@
 // DOM UI: screens, garage, map select, settings, HUD and notifications.
 import { CARS, MAPS, PAINTS, POWERUPS, COIN_VALUE, WANTED } from './config.js';
+import { BOATS, VEHICLE_WEAPONS } from './warVehicles.js';
+import { BOAT_STATS } from './boats.js';
 import { MISSIONS, TROPHIES } from './campaign.js';
 import { formatTime } from './utils.js';
 import { Vector3 as THREE_VEC } from 'three';
@@ -10,7 +12,7 @@ const $ = (s) => document.querySelector(s);
 export class UI {
   constructor(game) {
     this.game = game;
-    this.screens = ['loading', 'menu', 'modes', 'story', 'trophies', 'garage', 'maps', 'settings', 'hud', 'pause', 'gameover', 'win'];
+    this.screens = ['loading', 'menu', 'modes', 'story', 'trophies', 'garage', 'maps', 'settings', 'controls', 'hud', 'pause', 'gameover', 'win'];
     this.garageIndex = 0;
     this.comboTimer = 0;
     this.h = {
@@ -33,7 +35,7 @@ export class UI {
     for (const seg of document.querySelectorAll('.seg')) {
       seg.addEventListener('click', (e) => {
         const b = e.target.closest('button');
-        if (!b) return;
+        if (!b || !seg.dataset.setting) return;
         this.game.audio.init();
         const key = seg.dataset.setting;
         let v = b.dataset.v;
@@ -87,7 +89,7 @@ export class UI {
       requestAnimationFrame(() => this.refreshFocus());
       return;
     } else if (e === 'L') {
-      const back = document.querySelector('.screen.show [data-action="back"], .screen.show [data-action="resume"]');
+      const back = document.querySelector('#controls.show [data-action="controls-back"]') || document.querySelector('.screen.show [data-action="back"], .screen.show [data-action="resume"]');
       if (back) { this.game.audio.click(); back.click(); }
       return;
     }
@@ -124,8 +126,10 @@ export class UI {
       case 'maps': this.openMaps(); break;
       case 'settings': this.refreshSettings(); this.show('settings'); break;
       case 'back': g.showroomCar(g.save.selected); this.showMenu(); break;
-      case 'prev-car': this.garageIndex = (this.garageIndex + CARS.length - 1) % CARS.length; this.renderGarage(); break;
-      case 'next-car': this.garageIndex = (this.garageIndex + 1) % CARS.length; this.renderGarage(); break;
+      case 'prev-car': { const n = this.garageList().length; this.garageIndex = (this.garageIndex + n - 1) % n; this.renderGarage(); break; }
+      case 'next-car': this.garageIndex = (this.garageIndex + 1) % this.garageList().length; this.renderGarage(); break;
+      case 'controls': this.openControls(); break;
+      case 'controls-back': this.closeControls(); break;
       case 'pause': g.pause(); break;
       case 'resume': g.resume(); break;
       case 'restart': if (g.lastMission) g.startMission(g.lastMission.id); else g.startRun(); break;
@@ -225,25 +229,55 @@ export class UI {
   }
 
   // ---------------------------------------------------------------- garage
+  // ---------------------------------------------------------------- controls reference
+  openControls() {
+    const paused = this.game.state === 'paused';
+    this.show(...(paused ? ['hud', 'controls'] : ['controls']));
+  }
+
+  closeControls() {
+    if (this.game.state === 'paused') this.show('hud', 'pause'); else this.showMenu();
+  }
+
+  // Garage tabs: CARS / WAR VEHICLES / BOATS
+  garageList(tab = this.garageTab) {
+    return tab === 'boats' ? BOATS : CARS.filter((c) => !!c.war === (tab === 'war'));
+  }
+
   openGarage() {
-    this.garageIndex = Math.max(0, CARS.findIndex((c) => c.id === this.game.save.selected));
-    this.renderGarage();
+    const sel = CARS.find((c) => c.id === this.game.save.selected);
+    this.setGarageTab(sel?.war ? 'war' : 'cars');
     this.show('garage');
+  }
+
+  setGarageTab(tab) {
+    this.garageTab = tab;
+    const s = this.game.save;
+    const selId = tab === 'boats' ? (s.selectedBoat || 'speedboat') : s.selected;
+    this.garageIndex = Math.max(0, this.garageList().findIndex((c) => c.id === selId));
+    const tabs = $('#garage-tabs');
+    for (const b of tabs.querySelectorAll('[data-tab]')) b.classList.toggle('sel', b.dataset.tab === tab);
+    tabs.onclick = (e) => { const b = e.target.closest('[data-tab]'); if (b) { this.game.audio.click(); this.setGarageTab(b.dataset.tab); } };
+    this.renderGarage();
   }
 
   renderGarage() {
     const g = this.game, s = g.save;
-    const car = CARS[this.garageIndex];
-    const owned = s.owned.includes(car.id);
+    const car = this.garageList()[this.garageIndex] || this.garageList()[0];
+    const isBoat = !!car.boat;
+    const owned = car.price === 0 || s.owned.includes(car.id);
+    const selected = isBoat ? (s.selectedBoat || 'speedboat') === car.id : s.selected === car.id;
     $('#car-name').textContent = car.name;
     $('#car-tag').textContent = car.tagline;
-    const st = car.stats;
+    const st = isBoat ? BOAT_STATS[car.kind] : car.stats;
     const rows = [
       ['SPEED', st.speed / 66, Math.round(st.speed * 3.6)],
       ['ACCEL', st.accel / 43, st.accel],
-      ['HANDLING', (st.handling - 2) / 1.7, st.handling.toFixed(1)],
-      ['ARMOR', st.hp / 250, st.hp],
+      ['HANDLING', (st.handling - (isBoat ? 1 : 2)) / 1.7, st.handling.toFixed(1)],
+      ['ARMOR', st.hp / (car.war || isBoat ? 1200 : 250), st.hp],
     ];
+    const w = car.weapons || [];
+    $('#car-weapons').innerHTML = w.length ? 'WEAPONS: ' + w.map((id) => `<b>${VEHICLE_WEAPONS[id].name}</b>`).join('') : (isBoat || car.war ? 'UNARMED' : '');
     $('#car-stats').innerHTML = rows.map(([n, v, t]) => `<div class="stat"><span>${n}</span><div class="track"><i style="width:${Math.round(Math.min(1, Math.max(0.06, v)) * 100)}%"></i></div><b>${t}</b></div>`).join('');
     const color = s.colors[car.id] || car.color;
     const paints = $('#paints');
@@ -256,13 +290,16 @@ export class UI {
       g.showroomCar(car.id);
       this.renderGarage();
     };
+    const paintable = !isBoat && car.model !== 'tank';
+    paints.style.display = paintable ? '' : 'none';
     paints.style.opacity = owned ? 1 : 0.4;
     paints.style.pointerEvents = owned ? 'auto' : 'none';
     const btn = $('#car-action');
     btn.classList.remove('disabled');
-    if (s.selected === car.id) { btn.textContent = '✓ SELECTED'; btn.onclick = null; } else if (owned) {
+    const pick = () => { if (isBoat) s.selectedBoat = car.id; else s.selected = car.id; };
+    if (selected) { btn.textContent = isBoat ? '✓ YOUR BOAT' : '✓ SELECTED'; btn.onclick = null; } else if (owned) {
       btn.textContent = 'SELECT';
-      btn.onclick = () => { s.selected = car.id; g.persist(); this.renderGarage(); };
+      btn.onclick = () => { pick(); g.persist(); this.renderGarage(); };
     } else {
       const can = s.coins >= car.price;
       btn.innerHTML = `BUY · <span class="coin-ico"></span> ${car.price.toLocaleString()}`;
@@ -271,7 +308,7 @@ export class UI {
         if (s.coins < car.price) return;
         s.coins -= car.price;
         s.owned.push(car.id);
-        s.selected = car.id;
+        pick();
         g.persist();
         g.audio.powerup();
         this.updateWallet();
@@ -379,6 +416,8 @@ export class UI {
       const a = c.ammo[c.weapon];
       w = `${WEAPON_NAMES[c.weapon]} <b>${a === Infinity ? '∞' : a}</b><small>${c.ammo.smg > 0 || c.ammo.rpg > 0 ? 'Q: SWITCH' : 'CLICK / J / RIGHT STICK: SHOOT'}</small>`;
     } else {
+      const v = g.car;
+      if (v.weapons) w += `${VEHICLE_WEAPONS[v.weapons[v.wIdx || 0]].name} <b>∞</b><small>CLICK / J: FIRE${v.weapons.length > 1 ? ' · Q: SWITCH' : ''}</small><br>`;
       if (c.carGuns > 0) w += `MACHINE GUNS <b>${Math.ceil(c.carGuns)}s</b><br>`;
       if (c.carRockets > 0) w += `ROCKETS <b>${c.carRockets}</b>`;
     }
@@ -386,7 +425,7 @@ export class UI {
     // reticle over the current target
     const r = el('reticle');
     const t = c.target;
-    if (t && (foot || c.carGuns > 0 || c.carRockets > 0) && (t.kind === 'heli' ? !t.ref.falling : t.ref.alive !== false && !t.ref.dead)) {
+    if (t && (foot || c.carGuns > 0 || c.carRockets > 0 || g.car?.weapons) && (t.kind === 'heli' ? !t.ref.falling : t.ref.alive !== false && !t.ref.dead)) {
       const v = (this._v ||= new THREE_VEC()).set(t.ref.x, t.kind === 'heli' ? t.ref.y : (t.kind === 'cop' ? t.ref.y + 1 : 1), t.ref.z).project(g.camera);
       if (v.z < 1) {
         r.style.left = `${(v.x * 0.5 + 0.5) * innerWidth}px`; r.style.top = `${(-v.y * 0.5 + 0.5) * innerHeight}px`;

@@ -1,7 +1,7 @@
 import { chromium } from 'playwright-core';
 const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-angle=vulkan', '--enable-features=Vulkan', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
-await page.goto('http://localhost:5174/', { waitUntil: 'load', timeout: 90000 });
+await page.goto('http://localhost:5180/', { waitUntil: 'load', timeout: 90000 });
 await page.waitForFunction(() => window.game && window.game.state === 'menu', null, { timeout: 90000 });
 const res = await page.evaluate(async (q) => {
   const g = window.game;

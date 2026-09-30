@@ -3,7 +3,7 @@ const [out] = process.argv.slice(2);
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-angle=vulkan', '--enable-features=Vulkan'] });
 const p = await b.newPage({ viewport: { width: 1280, height: 720 } });
 const errs = []; p.on('pageerror', (e) => errs.push(e.message + '\n' + e.stack));
-await p.goto('http://localhost:5174/', { waitUntil: 'domcontentloaded', timeout: 90000 });
+await p.goto('http://localhost:5180/', { waitUntil: 'domcontentloaded', timeout: 90000 });
 await p.waitForFunction(() => window.game && window.game.state === 'menu' && window.game.humans.ready, null, { timeout: 120000 });
 const step = (secs) => p.evaluate((secs) => { const g = window.game; const n = Math.round(secs * 30); for (let i = 0; i < n && g.state === 'playing'; i++) { g.time += 1 / 30; g.updatePlay(1 / 30); g.city.update(1 / 30, g.time); g.effects.update(1 / 30, g.camera.position.x, g.camera.position.z); } }, secs);
 const log = (label) => p.evaluate((label) => { const g = window.game, a = g.avatar; const offs = g.people.list.filter((o) => o.copFoot); return `${label}: state=${g.state} car=${!!g.car} avatar=${a.active ? a.state : '-'} pos=(${g.player.x.toFixed(0)},${g.player.z.toFixed(0)}) hp=${g.player.hp.toFixed(0)} swim=${a.swimming} officers=${offs.length} dead=${offs.filter((o) => o.dead).length} bullets=${g.combat.bullets.length} kills=${g.combat.kills} bust=${g.bustTimer.toFixed(2)} rig=${a.person?.rig?.current}`; }, label);

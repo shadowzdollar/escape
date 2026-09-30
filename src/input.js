@@ -3,7 +3,7 @@
 export class Input {
   constructor() {
     this.keys = new Set();
-    this.touch = { left: false, right: false, gas: false, brake: false, drift: false, nitro: false };
+    this.touch = { left: false, right: false, gas: false, brake: false, drift: false, nitro: false, fire: false };
     this.pressed = new Set(); // one-shot keys this frame
     window.addEventListener('keydown', (e) => {
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
@@ -67,6 +67,30 @@ export class Input {
     }
     const mx = fwd.x * f + -fwd.z * r, mz = fwd.z * f + fwd.x * r;
     return { mx, mz, sprint, jump, fire, aimYaw, manual };
+  }
+
+  // Armed-vehicle trigger + aim. fwd = "screen up" on the ground (for stick aiming).
+  readWeapon(fwd) {
+    const k = this.keys;
+    let fire = this.mouseDown || k.has('KeyJ') || k.has('ControlLeft') || k.has('ControlRight') || this.touch.fire;
+    let aimYaw = null, manual = false;
+    const aimStick = (rx, ry) => {
+      if (Math.hypot(rx, ry) < 0.5) return;
+      const ax = fwd.x * ry + -fwd.z * rx, az = fwd.z * ry + fwd.x * rx;
+      aimYaw = Math.atan2(ax, az); manual = true; fire = true;
+    };
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    for (const gp of pads) {
+      if (!gp) continue;
+      if (gp.buttons[2]?.pressed) fire = true;
+      aimStick(gp.axes[2] || 0, -(gp.axes[3] || 0));
+      break;
+    }
+    // Arduino joystick: its right stick is the throttle while driving, so the
+    // right click is the trigger (auto-aim) instead of nitro
+    const j = this.joy;
+    if (j && j.active && j.raw.rb === 1) fire = true;
+    return { fire, aimYaw, manual };
   }
 
   mouseActive() { return performance.now() - this.mouse.t < 2500; }

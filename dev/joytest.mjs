@@ -2,7 +2,7 @@ import { chromium } from 'playwright-core';
 const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-angle=vulkan', '--enable-features=Vulkan'] });
 const p = await b.newPage({ viewport: { width: 1280, height: 720 } });
 const errs = []; p.on('pageerror', (e) => errs.push(e.message + e.stack));
-await p.goto('http://localhost:5174/', { waitUntil: 'domcontentloaded', timeout: 90000 });
+await p.goto('http://localhost:5180/', { waitUntil: 'domcontentloaded', timeout: 90000 });
 await p.waitForFunction(() => window.game && window.game.state === 'menu', null, { timeout: 90000 });
 const send = (line, n = 1) => p.evaluate(([l, n]) => { for (let i = 0; i < n; i++) window.game.joy.parse(l); }, [line, n]);
 const frame = () => p.waitForTimeout(120);

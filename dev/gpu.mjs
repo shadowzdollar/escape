@@ -4,7 +4,7 @@ const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome'
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 const logs = [];
 page.on('pageerror', (e) => logs.push(e.message));
-await page.goto('http://localhost:5174/', { waitUntil: 'domcontentloaded', timeout: 90000 }); if (process.env.NOPEOPLE) await page.evaluate(() => { window.__noPeople = true; }); if (process.env.NORIGS) await page.evaluate(() => { window.__noRigs = true; }); if (process.env.HEAT) await page.evaluate((h) => { window.__heat = h; }, process.env.HEAT);
+await page.goto('http://localhost:5180/', { waitUntil: 'domcontentloaded', timeout: 90000 }); if (process.env.NOPEOPLE) await page.evaluate(() => { window.__noPeople = true; }); if (process.env.NORIGS) await page.evaluate(() => { window.__noRigs = true; }); if (process.env.HEAT) await page.evaluate((h) => { window.__heat = h; }, process.env.HEAT);
 const r = await page.evaluate(() => { const c = document.createElement('canvas').getContext('webgl2'); const e = c.getExtension('WEBGL_debug_renderer_info'); return e ? c.getParameter(e.UNMASKED_RENDERER_WEBGL) : 'n/a'; });
 console.log('renderer:', r);
 await page.waitForFunction(() => window.game && window.game.state === 'menu' && window.game.humans.ready, null, { timeout: 120000 });

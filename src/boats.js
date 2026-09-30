@@ -41,10 +41,12 @@ export function createBoat(kind = 'speed') {
   root.add(body);
   const felucca = kind === 'felucca';
   const police = kind === 'police';
-  const L = felucca ? 7 : 6.2, W = felucca ? 2.2 : 2.3, H = 0.9;
-  const hullColor = police ? 0x16233f : felucca ? 0x8a5a2b : 0xf4f4f4;
-  const paintMat = new THREE.MeshStandardMaterial({ color: hullColor, roughness: 0.45, metalness: 0.15 });
-  const trim = new THREE.MeshStandardMaterial({ color: police ? 0xf2f2f2 : felucca ? 0x5e3b1c : 0x1e5bd6, roughness: 0.5 });
+  const armed = kind === 'patrol' || kind === 'gunboat';
+  const L = felucca ? 7 : kind === 'gunboat' ? 8.2 : kind === 'patrol' ? 7 : 6.2;
+  const W = felucca ? 2.2 : kind === 'gunboat' ? 2.8 : kind === 'patrol' ? 2.5 : 2.3, H = 0.9;
+  const hullColor = police ? 0x16233f : felucca ? 0x8a5a2b : kind === 'patrol' ? 0x3d4852 : kind === 'gunboat' ? 0x5b6452 : 0xf4f4f4;
+  const paintMat = new THREE.MeshStandardMaterial({ color: hullColor, roughness: armed ? 0.7 : 0.45, metalness: 0.15 });
+  const trim = new THREE.MeshStandardMaterial({ color: police ? 0xf2f2f2 : felucca ? 0x5e3b1c : armed ? 0x22272c : 0x1e5bd6, roughness: 0.5 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x1c1d20, roughness: 0.6, metalness: 0.4 });
   const glass = new THREE.MeshStandardMaterial({ color: 0x1b2a3a, roughness: 0.08, metalness: 0.6, transparent: true, opacity: 0.8 });
   const hull = new THREE.Mesh(hullGeometry(L, W, H), paintMat);
@@ -66,6 +68,20 @@ export function createBoat(kind = 'speed') {
     sail.geometry.computeVertexNormals();
     sail.position.x = 0.12;
     body.add(mast, sail);
+  } else if (armed) {
+    // military craft: armoured wheelhouse with a window band, twin outboards
+    const house = new THREE.Mesh(new THREE.BoxGeometry(W - 0.7, 0.8, 1.7), paintMat);
+    house.position.set(0, 0.95, -L * 0.12);
+    const band = new THREE.Mesh(new THREE.BoxGeometry(W - 0.66, 0.22, 1.74), glass);
+    band.position.set(0, 1.12, -L * 0.12);
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 1.4, 6), dark);
+    mast.position.set(0, 1.9, -L * 0.2);
+    body.add(house, band, mast);
+    for (const sx of [-0.5, 0.5]) {
+      const motor = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.0, 0.5), dark);
+      motor.position.set(sx, 0.35, -L / 2 - 0.25);
+      body.add(motor);
+    }
   } else {
     const shield = new THREE.Mesh(new THREE.BoxGeometry(W - 0.4, 0.45, 0.08), glass);
     shield.position.set(0, 0.85, L * 0.05);
@@ -99,9 +115,11 @@ export function createBoat(kind = 'speed') {
   };
 }
 
-const BOAT_STATS = {
+export const BOAT_STATS = {
   speed: { speed: 27, accel: 13, handling: 1.7, grip: 2.6, hp: 120, mass: 1.1 },
   police: { speed: 26, accel: 13, handling: 1.8, grip: 2.8, hp: 110, mass: 1.2 },
+  patrol: { speed: 28, accel: 13, handling: 1.7, grip: 2.8, hp: 260, mass: 1.6 },
+  gunboat: { speed: 31, accel: 15, handling: 1.8, grip: 3.0, hp: 380, mass: 1.9 },
   felucca: { speed: 9, accel: 3, handling: 0.9, grip: 3, hp: 80, mass: 1.0 },
 };
 
@@ -138,6 +156,18 @@ export class Boats {
     for (const v of this.list) { this.game.scene.remove(v.root); v.car.dispose(); this.game.vehicles.delete(v); }
     this.list = []; this.cops = [];
     this.copTimer = 4;
+    this.mine = null;
+  }
+
+  // The player's own boat from the garage, moored on the bank nearest to (nearX, nearZ).
+  spawnOwned(def, nearX, nearZ) {
+    let x = clamp(nearX, -CITY.HALF * 0.8, CITY.HALF * 0.8);
+    for (let t = 0; t < 30 && this.underBridge(x); t++) x += 6;
+    const z = nearZ > (this.z0 + this.z1) / 2 ? this.z1 - 2.2 : this.z0 + 2.2;
+    const b = this.make(def.kind, x, z, Math.PI / 2, 'empty');
+    b.docked = true; b.owned = true;
+    this.mine = b;
+    return b;
   }
 
   // Docked speedboats along both banks + cruising traffic.

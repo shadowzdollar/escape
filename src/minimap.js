@@ -120,6 +120,15 @@ export class Minimap {
       ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     }
+    // your garage boat (anchor-style marker, clamped to the rim)
+    const mine = game.boats?.mine;
+    if (mine && mine.alive && mine !== game.car) {
+      let [x, y] = toMap(mine.x, mine.z);
+      const r = Math.hypot(x, y), R = W / 2 - 10;
+      if (r > R) { x *= R / r; y *= R / r; }
+      ctx.fillStyle = '#35f2ff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x, y - 7); ctx.lineTo(x + 6, y + 5); ctx.lineTo(x - 6, y + 5); ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
     // player arrow
     ctx.rotate(-rotate);
     ctx.rotate(Math.PI - p.heading + rotate);

@@ -5,7 +5,7 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 const logs = [];
 page.on('pageerror', (e) => logs.push(e.message + '\n' + e.stack));
 page.on('console', (m) => { if (m.type() === 'error') logs.push(m.text()); });
-await page.goto('http://localhost:5174/', { waitUntil: 'load' });
+await page.goto('http://localhost:5180/', { waitUntil: 'load' });
 await page.waitForFunction(() => window.game && window.game.state === 'menu', null, { timeout: 90000 });
 // 1) idle player should get busted
 let r = await page.evaluate(() => {

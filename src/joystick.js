@@ -1,5 +1,10 @@
-// Arduino dual-thumbstick controller over Web Serial (see hardware/escape_joystick).
+// Arduino dual-thumbstick controller (see hardware/escape_joystick). Three links:
+//  - USB cable, via Web Serial
+//  - Bluetooth HC-05, via Web Serial (Chrome lists paired Serial Port Profile devices)
+//  - Bluetooth HC-05 bound to /dev/rfcomm0, via the dev-server bridge (hardware/joy-bridge.mjs)
 // Protocol: "J,lx,ly,lb,rx,ry,rb\n" with axes 0..1023 and buttons 0/1.
+
+const SPP_UUID = '00001101-0000-1000-8000-00805f9b34fb'; // Bluetooth Serial Port Profile (HC-05/HC-06)
 
 const DEAD = 0.12;
 
@@ -33,42 +38,106 @@ export class SerialJoystick {
 
   status(text) { this.statusText = text; this.onStatus?.(text, this.connected); }
 
-  // Reopen a port the user already granted (no click needed).
-  async autoConnect() {
-    if (!this.supported || this.connected) return;
-    const ports = await navigator.serial.getPorts();
-    if (ports.length) await this.open(ports[0]);
+  // Reopen a port the user already granted (no click needed), else try the Bluetooth bridge.
+  async autoConnect(quiet = false) {
+    if (this.connected || this.connecting) return;
+    const ports = this.supported ? await navigator.serial.getPorts() : [];
+    for (const p of ports) { if (await this.open(p, quiet)) return; }
+    if (!this.connected && import.meta.env?.DEV) await this.connectBridge();
   }
 
   // Must be called from a user gesture the first time (browser security rule).
   async requestConnect() {
     if (!this.supported) { this.status('Web Serial not supported: use Chrome or Edge'); return; }
+    this.stopBridge();
+    let port;
     try {
-      const port = await navigator.serial.requestPort();
-      await this.open(port);
+      // also offer paired Bluetooth serial devices (HC-05 / HC-06) in the chooser
+      try { port = await navigator.serial.requestPort({ allowedBluetoothServiceClassIds: [SPP_UUID] }); } catch (e) {
+        if (e.name !== 'TypeError') throw e;
+        port = await navigator.serial.requestPort();
+      }
     } catch (e) {
       this.status(e.name === 'NotFoundError' ? 'No port selected' : `Error: ${e.message}`);
+      return;
     }
+    await this.open(port);
   }
 
-  async open(port) {
+  async open(port, quiet = false) {
+    const bt = !!port.getInfo?.().bluetoothServiceClassId;
+    this.connecting = true;
+    if (bt && !quiet) this.status('Connecting over Bluetooth… (a few seconds)');
     try {
-      await port.open({ baudRate: 115200 });
+      await port.open({ baudRate: 115200 }); // ignored by Bluetooth links
     } catch (e) {
-      if (!String(e.message).includes('already open')) { this.status(`Could not open port: ${e.message}`); return; }
+      if (!String(e.message).includes('already open')) {
+        this.connecting = false;
+        if (!quiet) this.status(`Could not open ${bt ? 'Bluetooth link' : 'port'}: ${e.message}`);
+        return false;
+      }
     }
+    this.connecting = false;
+    this.stopBridge();
     this.port = port;
+    this.link = bt ? 'Bluetooth' : 'USB';
+    this.begin();
+    this.readLoop();
+    return true;
+  }
+
+  begin() {
     this.connected = true;
     this.center = null; // recalibrate on first packets
     this.calib = [];
-    this.status('Connected: calibrating (leave the sticks centred)');
-    this.readLoop();
+    this.lastData = performance.now();
+    this.status(`Connected (${this.link}): calibrating, leave the sticks centred`);
   }
 
   lost() {
+    const was = this.connected;
     this.connected = false;
     this.port = null;
-    this.status('Controller unplugged');
+    if (was) this.status(this.link === 'USB' ? 'Controller unplugged' : 'Bluetooth link lost: reconnecting…');
+    // Bluetooth drops when the controller is switched off or out of range: keep retrying quietly
+    clearTimeout(this.retry);
+    this.retry = setTimeout(() => this.autoConnect(true), 3000);
+  }
+
+  // ---- Bluetooth bridge: the Vite dev server reads /dev/rfcomm0 and streams it here
+  async connectBridge() {
+    if (this.bridge || this.connected) return;
+    const ctrl = new AbortController();
+    this.bridge = ctrl;
+    let res;
+    try { res = await fetch('/joy-bridge', { signal: ctrl.signal, cache: 'no-store' }); } catch { res = null; }
+    if (!res || !res.ok || !res.body) {
+      if (this.bridge === ctrl) this.bridge = null;
+      if (!this.connected) { clearTimeout(this.retry); this.retry = setTimeout(() => this.autoConnect(true), 5000); }
+      return;
+    }
+    this.link = `Bluetooth ${res.headers.get('X-Joy-Port') || 'bridge'}`;
+    this.begin();
+    const reader = res.body.getReader(), decoder = new TextDecoder();
+    let buf = '';
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let nl;
+        while ((nl = buf.indexOf('\n')) >= 0) { this.parse(buf.slice(0, nl).trim()); buf = buf.slice(nl + 1); }
+        if (buf.length > 256) buf = '';
+      }
+    } catch { /* aborted or link dropped */ }
+    if (this.bridge === ctrl) { this.bridge = null; if (!this.port) this.lost(); }
+  }
+
+  stopBridge() {
+    if (!this.bridge) return;
+    const b = this.bridge;
+    this.bridge = null;
+    b.abort();
   }
 
   async readLoop() {
@@ -126,7 +195,8 @@ export class SerialJoystick {
     return shape(Math.max(-1, Math.min(1, v)));
   }
 
-  get active() { return this.connected && !!this.center && performance.now() - this.lastData < 500; }
+  // Bluetooth packets arrive in small bursts, so allow a longer gap before calling the link dead
+  get active() { return this.connected && !!this.center && performance.now() - this.lastData < 800; }
 
   // Driving controls. Left stick steers, right stick up/down = gas/brake,
   // left click = handbrake drift, right click = nitro.
@@ -160,6 +230,11 @@ export class SerialJoystick {
       this.rHeld = (this.rHeld || 0) + dt;
       if (this.rHeld > 0.6 && this.rHeld - dt <= 0.6) this.events.add('RHOLD');
     } else this.rHeld = 0;
+    // long-press left stick = get out of an armed vehicle (its R click is the trigger)
+    if (this.raw.lb && !this.raw.rb) {
+      this.lHeld = (this.lHeld || 0) + dt;
+      if (this.lHeld > 0.6 && this.lHeld - dt <= 0.6) this.events.add('LHOLD');
+    } else this.lHeld = 0;
     this.prevBtn = { lb: this.raw.lb, rb: this.raw.rb };
     // hold both clicks ~0.8 s = pause / resume
     if (this.raw.lb && this.raw.rb) {

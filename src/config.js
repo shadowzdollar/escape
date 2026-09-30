@@ -61,6 +61,12 @@ export const CARS = [
   { id: 'velox', name: 'VELOX MX', model: 'velox', price: 11000, color: '#ff7a00', tagline: 'Carbon-tub British hypercar.', stats: { speed: 58, accel: 38, handling: 3.6, grip: 9.0, hp: 135, mass: 1.25 } },
   { id: 'toro', name: 'TORO V12', model: 'toro', price: 12000, color: '#9acd32', tagline: 'Angular Italian V12 wedge. Loud in every way.', stats: { speed: 60, accel: 39, handling: 3.5, grip: 8.9, hp: 145, mass: 1.3 } },
   { id: 'veyra', name: 'VEYRA', model: 'veyra', price: 20000, color: '#1e3a8a', accent: '#0b0f1a', tagline: 'Sixteen cylinders. The fastest thing on wheels.', stats: { speed: 66, accel: 42, handling: 3.5, grip: 9.2, hp: 170, mass: 1.4 } },
+
+  // ---- war vehicles (GARAGE → WAR tab): armed, armoured, loud
+  { id: 'rhino', name: 'RHINO', model: 'gelande', war: true, weapons: ['mg'], price: 9000, color: '#b59a6a', accent: '#3b3b2e', tagline: 'Armoured 4x4 with a roof machine-gun turret.', stats: { speed: 43, accel: 25, handling: 2.5, grip: 7.4, hp: 420, mass: 2.7 } },
+  { id: 'warhog', name: 'WARHOG', model: 'raptor', war: true, weapons: ['rockets', 'mg'], price: 12000, color: '#5b6344', tagline: 'Desert technical: rocket pod in the bed, gun on the roof.', stats: { speed: 45, accel: 26, handling: 2.5, grip: 7.2, hp: 380, mass: 2.5 } },
+  { id: 'ghost', name: 'GHOST', model: 'hyper', war: true, weapons: ['missiles'], price: 16000, color: '#15171a', tagline: 'Matte-black interceptor with homing missile pods.', stats: { speed: 58, accel: 38, handling: 3.4, grip: 8.8, hp: 240, mass: 1.5 } },
+  { id: 'goliath', name: 'GOLIATH MBT', model: 'tank', war: true, weapons: ['cannon', 'mg'], price: 25000, color: '#5f6b3e', tagline: 'Your own main battle tank. 120mm cannon, coax gun, 1200 armour.', stats: { speed: 27, accel: 13, handling: 1.7, grip: 9.0, hp: 1200, mass: 7.0 } },
 ];
 
 export const PAINTS = [
