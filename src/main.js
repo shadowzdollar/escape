@@ -28,7 +28,8 @@ const GradeShader = {
 };
 
 import { CARS, MAPS, WANTED, COIN_VALUE, CITY } from './config.js';
-import { City, cutout } from './city.js';
+import { City, cutout, SHADOW_LAYER } from './city.js';
+import { loadCityKit } from './cityKit.js';
 import { Vehicle, collideStatic, collidePair } from './vehicle.js';
 import { createCar } from './carModels.js';
 import { createTank } from './tankModel.js';
@@ -40,7 +41,9 @@ import { People } from './people.js';
 import { Humans } from './humans.js';
 import { Avatar } from './avatar.js';
 import { Combat, WEAPONS } from './combat.js';
-import { MissionRun, MISSIONS, TROPHIES } from './campaign.js';
+import { TROPHIES } from './campaign.js';
+import { StoryRun } from './story/engine.js';
+import { getMission, nextStoryMission, rankOf, STORY_FINAL } from './story/index.js';
 import { Boats, WATER_Y, createBoat } from './boats.js';
 import { Military } from './military.js';
 import { Cinematic } from './cinematic.js';
@@ -197,6 +200,7 @@ class Game {
     this.sun.shadow.camera.left = -75; this.sun.shadow.camera.right = 75;
     this.sun.shadow.camera.top = 75; this.sun.shadow.camera.bottom = -75;
     this.sun.shadow.camera.near = 1; this.sun.shadow.camera.far = 420;
+    this.sun.shadow.camera.layers.enable(SHADOW_LAYER); // simplified shadow casters (city.js)
     this.sun.shadow.bias = -0.0004;
     this.sun.shadow.normalBias = 0.6;
     s.add(this.hemi, this.sun, this.sun.target);
@@ -306,6 +310,8 @@ class Game {
       this.scene.remove(this.city.group);
       this.city.dispose();
     }
+    this.ui.setLoading(`Planting trees in ${map.name}…`);
+    await loadCityKit();
     this.city = new City(map, { quality: this.save.settings.quality });
     this.scene.add(this.city.group);
     this.isNight = map.time === 'night';
@@ -450,20 +456,21 @@ class Game {
     this.fountains = [];
   }
 
-  // Story mode: load the mission's map if needed, then start.
-  async startMission(id) {
-    const def = MISSIONS.find((m) => m.id === id);
+  // Story mode: load the mission's map if needed, then start (optionally at a checkpoint).
+  async startMission(id, step = 0) {
+    const def = getMission(id);
     if (!def) return;
     if (def.map !== this.map.id) {
       this.save.map = def.map; this.persist();
       await this.loadMap(def.map);
     }
-    this.startRun({ intro: def.id === 'm1' && this.save.settings.intro !== false, mission: def });
+    this.startRun({ intro: !!def.intro && step === 0 && this.save.settings.intro !== false, mission: def, step });
   }
 
-  startRun({ intro = false, mission = null } = {}) {
+  startRun({ intro = false, mission = null, step = 0 } = {}) {
     if (!this.city) return;
     this.pendingMission = mission;
+    this.pendingStep = step;
     this.lastMission = mission;
     this.audio.init();
     this.clearWorld();
@@ -531,13 +538,9 @@ class Game {
     const md = this.pendingMission;
     this.pendingMission = null;
     if (md) {
-      this.heat = Math.max(this.heat, md.startHeat);
-      const st = md.start || {};
-      if (st.carGuns) this.combat.carGuns = st.carGuns;
-      if (st.carRockets) this.combat.carRockets = st.carRockets;
-      if (st.rpg) this.combat.ammo.rpg = st.rpg;
-      this.mission = new MissionRun(this, md);
-      this.ui.toast(md.name, 'warn');
+      this.heat = 0;
+      this.mission = new StoryRun(this, md, this.pendingStep || 0);
+      this.ui.storyTitle?.(md, this.pendingStep || 0);
     } else this.ui.toast('ESCAPE THE POLICE!', 'warn');
     this.camTarget = new THREE.Vector3(p.x, 0, p.z);
     this.last = performance.now();
@@ -568,7 +571,7 @@ class Game {
       }
     }
     for (const o of this.people.list) {
-      if (!o.copFoot || o.dead) continue;
+      if (!(o.copFoot || o.hostile) || o.dead) continue;
       const dd = Math.hypot(o.x - x, o.z - z);
       if (dd < r) { o.hp = (o.hp ?? 40) - power * (1 - dd / r) * 2; if (o.hp <= 0) { o.dead = true; this.onOfficerDown(o); } }
     }
@@ -612,6 +615,7 @@ class Game {
     if (key === 'sound') this.audio.setMuted(!v);
     if (key === 'music') this.audio.setMusic(v);
     if (key === 'fps' && !v) this.ui.setFps('');
+    if (key === 'voice' && !v) this.audio.say?.('');
     if (key === 'joyInvSteer') this.joy.invert.steer = v;
     if (key === 'joyInvThrottle') this.joy.invert.throttle = v;
   }
@@ -631,8 +635,12 @@ class Game {
     }
     this.audio.gameOver();
     this.ui.flash(reason === 'wrecked' ? 'white' : 'hit');
-    const earned = this.mission ? this.runCoins * COIN_VALUE : this.runCoins * COIN_VALUE + this.wrecks * 15 + Math.floor(this.runTime / 10) * 3;
-    if (this.mission) this.mission.failed = true;
+    if (this.mission) {
+      this.mission.failed = true;
+      this.storyFailScreen({ busted: 'You were arrested.', wrecked: 'Your ride was destroyed.', down: 'You were taken down.', timeout: 'Out of time.' }[reason] || 'Mission failed.');
+      return;
+    }
+    const earned = this.runCoins * COIN_VALUE + this.wrecks * 15 + Math.floor(this.runTime / 10) * 3;
     const s = this.save;
     s.coins += earned;
     s.totals.runs++; s.totals.copsWrecked += this.wrecks; s.totals.coins += earned; s.totals.time += this.runTime;
@@ -699,26 +707,51 @@ class Game {
     const m = this.mission, def = m.def;
     this.state = 'over';
     this.slowmo = 1.2;
-    const stars = m.stars();
     const s = this.save;
-    const camp = s.campaign ||= { unlocked: 1, stars: {} };
-    const idx = MISSIONS.indexOf(def);
-    const prevStars = camp.stars[def.id] || 0;
-    camp.stars[def.id] = Math.max(prevStars, stars);
-    camp.unlocked = Math.max(camp.unlocked, Math.min(MISSIONS.length, idx + 2));
-    const reward = Math.round(def.reward * (0.5 + stars / 6)) + this.runCoins * COIN_VALUE;
+    const st = s.story ||= { done: {}, xp: 0 };
+    const first = !st.done[def.id];
+    st.done[def.id] = (st.done[def.id] || 0) + 1;
+    const reward = (first ? def.reward : Math.round(def.reward * 0.35)) + this.runCoins * COIN_VALUE;
+    const xp = first ? def.xp : Math.round(def.xp * 0.3);
+    const rank0 = rankOf(st.xp || 0);
+    st.xp = (st.xp || 0) + xp;
+    const rank1 = rankOf(st.xp);
     s.coins += reward;
     s.totals.coins += reward;
     let unlocked = null;
-    if (def.unlock && CARS.some((c) => c.id === def.unlock) && !s.owned.includes(def.unlock)) { s.owned.push(def.unlock); unlocked = CARS.find((c) => c.id === def.unlock).name; }
-    if (idx === MISSIONS.length - 1) this.unlockTrophy('story');
+    if (first && def.unlock) {
+      const car = CARS.find((c) => c.id === def.unlock) || BOATS.find((b) => b.id === def.unlock);
+      if (car && !s.owned.includes(car.id)) { s.owned.push(car.id); unlocked = car.name; }
+    }
+    if (def.id === STORY_FINAL) this.unlockTrophy('story');
+    if (st.checkpoint?.id === def.id) delete st.checkpoint;
+    st.last = def.id;
     this.persist();
     this.audio.levelUp();
     this.police.suppress = true;
-    const next = MISSIONS[idx + 1] && camp.unlocked > idx + 1 ? MISSIONS[idx + 1] : null;
+    const next = def.kind === 'story' ? nextStoryMission(s) : null;
     setTimeout(() => {
-      if (this.state === 'over') { this.ui.showMissionWin({ def, stars, reward, unlocked, time: m.t, next }); this.ui.updateWallet(); }
-    }, 1500);
+      if (this.state === 'over') { this.ui.showStoryWin({ def, reward, xp, rank0, rank1, unlocked, next, first, time: m.t }); this.ui.updateWallet(); }
+    }, 1600);
+  }
+
+  // A story objective failed (target escaped, spotted, out of time…): retry from the checkpoint.
+  missionFailed(reason, fx = 'fail') {
+    if (this.state !== 'playing') return;
+    this.state = 'over';
+    this.slowmo = 1.1;
+    this.audio.gameOver();
+    this.ui.flash('hit');
+    this.storyFailScreen(reason, fx);
+  }
+
+  storyFailScreen(reason) {
+    const m = this.mission;
+    const st = this.save.story ||= { done: {}, xp: 0 };
+    st.checkpoint = { id: m.def.id, step: m.checkpoint };
+    this.save.coins += this.runCoins * COIN_VALUE;
+    this.persist();
+    setTimeout(() => { if (this.state === 'over') { this.ui.showStoryFail({ def: m.def, reason, step: m.checkpoint }); this.ui.updateWallet(); } }, 1500);
   }
 
   unlockTrophy(id) {
@@ -954,6 +987,7 @@ class Game {
     h.hp = (h.hp ?? 150) - dmg;
     if (h.hp > 0) return;
     h.falling = true;
+    if (this.state === 'playing') this.mission?.onHeliDown?.(h);
     if (h.laser) { this.military.removeWarning(h.laser); h.laser = null; }
     h.aimT = 0;
     this.effects.explosion(h.x, h.z);
@@ -1090,6 +1124,7 @@ class Game {
 
   onDestroyed(v) {
     v.destroyed = true;
+    if (this.state === 'playing') this.mission?.onDestroyed?.(v);
     const p = this.player;
     const d = p ? Math.hypot(v.x - p.x, v.z - p.z) : 999;
     this.effects.explosion(v.x, v.z);
@@ -1231,7 +1266,8 @@ class Game {
         || (this.car && !this.car.weapons && J.has('RHOLD') && this.car.input.throttle === 0)
         || (this.car && this.car.weapons && J.has('LHOLD') && this.car.speed < 2)
         || (!this.car && J.has('R'));
-      if (toggle) { if (this.car) this.exitCar(); else this.tryEnterCar(); }
+      // in a mission, F next to a guard / target is a silent takedown instead
+      if (toggle && !(!this.car && this.mission?.consumeInteract?.())) { if (this.car) this.exitCar(); else this.tryEnterCar(); }
       if (I.wasPressed('KeyQ')) {
         if (!this.car) this.ui.toast(WEAPONS[this.combat.nextWeapon()].name);
         else if (this.car.weapons?.length > 1) this.ui.toast(this.combat.nextVehicleWeapon(this.car));
@@ -1352,12 +1388,15 @@ class Game {
     this.runTime += dt;
     this.score += dt * 10 * (1 + this.wantedLevel * 0.25);
     this.heat += dt * 1.1;
-    // wanted level from heat (missions cap it)
+    // wanted level from heat; in story mode each step sets the police response itself
     this.mission?.capHeat();
     let lvl = 0;
     for (let i = 0; i < WANTED.length; i++) if (this.heat >= WANTED[i].heat) lvl = i;
-    if (this.mission) lvl = Math.min(lvl, this.mission.def.wantedCap - 1);
-    if (lvl > this.wantedLevel) {
+    if (this.mission) {
+      this.wantedLevel = lvl;
+      this.maxLevel = Math.max(this.maxLevel, lvl);
+      this.audio.intensity = this.mission.threat < 0 ? 0 : lvl;
+    } else if (lvl > this.wantedLevel) {
       this.wantedLevel = lvl;
       this.maxLevel = Math.max(this.maxLevel, lvl);
       this.audio.levelUp();
@@ -1542,6 +1581,7 @@ class Game {
     const f = this.focus;
     const snap = 2;
     const fx = Math.round(f.x / snap) * snap, fz = Math.round(f.z / snap) * snap;
+    this.city?.updateLod(f.x, f.z);
     if (this.sunDir) {
       this.sun.position.set(fx + this.sunDir.x * 200, this.sunDir.y * 200, fz + this.sunDir.z * 200);
       this.sun.target.position.set(fx, 0, fz);

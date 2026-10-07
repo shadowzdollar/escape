@@ -27,9 +27,24 @@ npm run build      # production build in dist/
 
 ## Features
 
-- **Story mode:** 5 missions (The Getaway, Shake Them Off, Neon Heist, Cold War, Pharaoh's Escape) with objectives, timers, capped wanted levels, star ratings, prize money, car unlocks, and each mission unlocking the next. 13 trophies.
+- **Story mode, "The Long Road":** an Assassin's Creed style campaign of 12 sequences (The Heist, Neon Blood, The Commissioner's Dogs, Dust and Iron, Whiteout, Sands of Giza, The River War, Blackout, Scorched Earth, Cold Steel, The Commissioner, The Architect).
+  - **Size:** 120 story missions plus 240 side contracts, 360 missions in all. Story missions have 4–8 objectives each, with preparation, the main job and an aftermath.
+  - **Objectives:** stealth assassinations with guards who grow suspicious, silent takedowns (F next to a guard or target), tailing, car chases, stealing and delivering vehicles, defending zones against waves, gang fights, planting charges, synchronizing viewpoints, meeting contacts, races, boat runs, helicopter and tank hunts.
+  - **Story and dialogue:** fully voiced subtitles (browser speech; can be turned off with Settings → Story voices), a briefing screen and mission title cards.
+  - **No wanted stars:** each objective sets the police response itself.
+  - **Checkpoints:** every objective is a checkpoint. When you fail, retry from the checkpoint or restart.
+  - **Difficulty:** rises through the story and with your rank (1–50, earned from XP). It affects police numbers, enemy health, aim and damage, guard perception and time limits.
+  - **Rewards:** missions pay coins and unlock vehicles (cars, war vehicles, boats).
+  - **Trophies:** 13.
 - **On foot:** jump out at any speed (bailing out at speed makes you tumble), carjack any car (traffic, police, even tanks), run, sprint on stamina, jump, and swim the river. When your car is wrecked you bail out and keep going.
 - **Combat:** pistol, SMG and rocket launcher on foot; car-mounted machine guns and auto-lock rockets from power-ups. Shoot officers, police cars and tanks, and shoot helicopters out of the sky. Officers leave their cars, chase you with guns and arrest you if they catch you.
+- **Realistic city (Quaternius CC0 models):**
+  - **Trees:** textured trees with leaf cut-outs, plus autumn maples, pines and palms.
+  - **Parks:** flower beds, ferns, grass, rocks and clipped hedges.
+  - **Old town:** a district of European townhouse blocks built around green courtyards.
+  - **Street details:** streetlights, hydrants, bins, dumpsters, trash bags, chain-link fences, rooftop AC units, antennas and water towers.
+  - **Facades:** office facades have glossy, reflective windows set back behind sills and floor ledges.
+  - **Performance:** a distance LOD swaps in simplified models far away, and shadows are drawn from cheap copies. Rebuild the kit with `node dev/pack-city.mjs <folder of .glb files>`.
 - **War vehicles (Garage → WAR VEHICLES):** RHINO armoured 4x4 with a roof machine-gun turret, WARHOG technical with a rocket pod and machine gun, GHOST interceptor with homing missiles, and the GOLIATH main battle tank (cannon + coax gun, 1200 armour). Turrets follow the mouse or lock on to targets ahead. A stolen police tank gets a working cannon too.
 - **Boats (Garage → BOATS):** speedboat (free), PATROL BOAT with a bow machine gun, and GUNBOAT with twin rocket pods and a deck gun. The boat you pick waits at the nearest river bank (cyan ▲ on the minimap).
 - **Movement:** faster running (jog 7.5 m/s, sprint 11 m/s), a front-crawl swim with strokes and splashes, and animated car doors that open when you get in, drag the driver out, or step out.

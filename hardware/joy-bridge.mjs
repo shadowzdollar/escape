@@ -52,7 +52,7 @@ export function joyBridge() {
     configureServer(server) {
       server.middlewares.use('/joy-bridge', async (req, res) => {
         const ok = await open();
-        if (!ok) { res.statusCode = 503; res.end(`no controller on ${PORT}`); return; }
+        if (!ok) { res.writeHead(200, { 'Content-Type': 'text/plain', 'X-Joy-Port': 'none' }); res.end(); return; } // 200 + "none": no console error
         res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store', 'X-Joy-Port': PORT.replace('/dev/', '') });
         res.flushHeaders();
         clients.add(res);

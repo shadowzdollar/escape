@@ -112,11 +112,18 @@ export class Minimap {
       ctx.fillStyle = '#ff3030';
       ctx.fillRect(x - 2, y - 2, 4, 4);
     }
+    // story guards (orange, yellow when suspicious)
+    for (const d of game.mission?.minimapDots?.() || []) {
+      const [x, y] = toMap(d.x, d.z);
+      ctx.fillStyle = d.c;
+      ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+    }
+    const MK = { cash: '#ffd23c', go: '#3cff7a', target: '#ff3b3b', contact: '#4da3ff', plant: '#c56bff', boat: '#35f2ff', car: '#ffffff', zone: '#ff9f1c' };
     for (const m of game.mission?.markers || []) {
       let [x, y] = toMap(m.x, m.z);
       const r = Math.hypot(x, y), R = W / 2 - 10;
       if (r > R) { x *= R / r; y *= R / r; }
-      ctx.fillStyle = m.kind === 'cash' ? '#ffd23c' : '#3cff7a';
+      ctx.fillStyle = MK[m.kind] || '#3cff7a';
       ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     }

@@ -93,6 +93,13 @@ export function facadeTextures(style, seed = 4) {
   const [e, ectx] = canvas(S);
   ectx.fillStyle = '#000';
   ectx.fillRect(0, 0, S, S);
+  // surface maps: G = roughness, B = metalness (glTF ORM layout); H = height for the normal map
+  const [o, octx] = canvas(S);
+  octx.fillStyle = 'rgb(0,225,0)';
+  octx.fillRect(0, 0, S, S);
+  const [h, hctx] = canvas(S);
+  hctx.fillStyle = '#c8c8c8';
+  hctx.fillRect(0, 0, S, S);
 
   const wall = { office: '#e6e3dc', glass: '#c9d3dc', residential: '#efe7da', adobe: '#f2e2c4', brick: '#d9b8a6' }[style];
   noiseFill(ctx, S, S, wall, 12, rng, 2);
@@ -119,6 +126,11 @@ export function facadeTextures(style, seed = 4) {
       g.addColorStop(1, `rgb(${tint[0] * k * 0.5},${tint[1] * k * 0.55},${tint[2] * k * 0.65})`);
       ctx.fillStyle = g;
       ctx.fillRect(wx, wy, ww, wh);
+      // glass is smooth and reflective, and sits back from the wall
+      octx.fillStyle = style === 'glass' ? 'rgb(0,20,170)' : 'rgb(0,28,140)';
+      octx.fillRect(wx, wy, ww, wh);
+      hctx.fillStyle = style === 'glass' ? '#a8a8a8' : '#707070';
+      hctx.fillRect(wx, wy, ww, wh);
       // frame
       ctx.strokeStyle = style === 'glass' ? 'rgba(40,50,60,0.9)' : 'rgba(70,70,70,0.8)';
       ctx.lineWidth = style === 'glass' ? 2 : 3;
@@ -128,6 +140,10 @@ export function facadeTextures(style, seed = 4) {
         // sill
         ctx.fillStyle = 'rgba(0,0,0,0.25)';
         ctx.fillRect(wx - 2, wy + wh, ww + 4, 4);
+        hctx.fillStyle = '#f0f0f0';
+        hctx.fillRect(wx - 3, wy + wh, ww + 6, 5);
+        hctx.fillStyle = '#9a9a9a';
+        hctx.fillRect(wx + ww / 2 - 1.5, wy, 3, wh); // mullion
       }
       if (style === 'residential' && rng() < 0.3) {
         // closed blinds
@@ -148,9 +164,35 @@ export function facadeTextures(style, seed = 4) {
       // floor slab band
       ctx.fillStyle = 'rgba(30,40,50,0.8)';
       ctx.fillRect(0, gy * cs, S, 5);
+      octx.fillStyle = 'rgb(0,120,90)';
+      octx.fillRect(0, gy * cs, S, 5);
+    } else {
+      // a slight ledge at every floor line
+      hctx.fillStyle = '#d8d8d8';
+      hctx.fillRect(0, gy * cs, S, 3);
     }
   }
-  return { map: toTexture(c), emissive: toTexture(e) };
+  return { map: toTexture(c), emissive: toTexture(e), orm: toTexture(o, { srgb: false }), normal: heightToNormal(hctx, S, 2.2) };
+}
+
+// Sobel height → tangent-space normal map (canvas, repeat-wrapped).
+function heightToNormal(hctx, S, strength) {
+  const src = hctx.getImageData(0, 0, S, S).data;
+  const [n, nctx] = canvas(S);
+  const img = nctx.createImageData(S, S), d = img.data;
+  const H = (x, y) => src[(((y + S) % S) * S + ((x + S) % S)) * 4] / 255;
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const dx = (H(x + 1, y - 1) + 2 * H(x + 1, y) + H(x + 1, y + 1)) - (H(x - 1, y - 1) + 2 * H(x - 1, y) + H(x - 1, y + 1));
+      const dy = (H(x - 1, y + 1) + 2 * H(x, y + 1) + H(x + 1, y + 1)) - (H(x - 1, y - 1) + 2 * H(x, y - 1) + H(x + 1, y - 1));
+      let nx = -dx * strength, ny = dy * strength, nz = 1;
+      const l = Math.hypot(nx, ny, nz);
+      const i = (y * S + x) * 4;
+      d[i] = (nx / l * 0.5 + 0.5) * 255; d[i + 1] = (ny / l * 0.5 + 0.5) * 255; d[i + 2] = (nz / l * 0.5 + 0.5) * 255; d[i + 3] = 255;
+    }
+  }
+  nctx.putImageData(img, 0, 0);
+  return toTexture(n, { srgb: false });
 }
 
 export function radialTexture(inner = 'rgba(255,255,255,1)', outer = 'rgba(255,255,255,0)', size = 128) {

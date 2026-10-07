@@ -1,0 +1,4 @@
+City kit (kit.glb): trees, shrubs, ground cover, rocks, street furniture, rooftop units
+and townhouses by Quaternius (https://quaternius.com), downloaded from Poly Pizza
+(https://poly.pizza/u/Quaternius). License: CC0 1.0 Universal (public domain).
+Repacked (merged, simplified LODs, WebP textures, Draco) by dev/pack-city.mjs.

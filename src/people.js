@@ -399,7 +399,7 @@ export class People {
   // Loud event (crash): startle, then look; curious people come to stare.
   onNoise(x, z, loud = 1) {
     for (const p of this.list) {
-      if (p.script || p.copFoot || p.mode === 'down' || p.mode === 'getup' || p.mode === 'flee' || p.mode === 'dodge' || p.mode === 'guard') continue;
+      if (p.script || p.copFoot || p.mission || p.mode === 'down' || p.mode === 'getup' || p.mode === 'flee' || p.mode === 'dodge' || p.mode === 'guard') continue;
       const d = Math.hypot(p.x - x, p.z - z);
       if (d > 30 * loud) continue;
       const kind = d < 12 && p.nerve > 0.6 ? 'panic' : p.curiosity > 0.7 && !p.leader && p.mode !== 'sit' ? 'rubberneck' : 'startle';
@@ -413,7 +413,7 @@ export class People {
       if (d < r) {
         const k = (1 - d / r) * 13 + 4;
         this.knock(p, (p.x - x) / (d || 1) * k, (p.z - z) / (d || 1) * k, 1.4);
-      } else if (d < r * 4.5 && p.mode !== 'guard' && !p.copFoot) p.react = { t: p.reaction * 0.5 + d / 340, kind: 'panic', x, z };
+      } else if (d < r * 4.5 && p.mode !== 'guard' && !p.copFoot && !p.mission) p.react = { t: p.reaction * 0.5 + d / 340, kind: 'panic', x, z };
     }
   }
 
@@ -439,14 +439,14 @@ export class People {
 
     for (let i = this.list.length - 1; i >= 0; i--) {
       const p = this.list[i];
-      if (!p.script && Math.hypot(p.x - fx, p.z - fz) > 175) { this.detach(p); this.list.splice(i, 1); continue; }
+      if (!p.script && !p.mission && Math.hypot(p.x - fx, p.z - fz) > 175) { this.detach(p); this.list.splice(i, 1); continue; }
       const far = Math.abs(p.x - fx) > 95 || Math.abs(p.z - fz) > 95;
       p.lodAcc = (p.lodAcc || 0) + dt;
       if (far && p.lodAcc < 0.12 && !p.script) continue; // distant: update ~8x/s
       const step = p.lodAcc;
       p.lodAcc = 0;
       if (!p.script) {
-        if (scan) this.attention(p);
+        if (scan && !p.mission) this.attention(p);
         this.think(p, step);
       }
       this.animate(p, step);
@@ -577,6 +577,13 @@ export class People {
       case 'follow': return this.updateFollow(p, dt);
       case 'waitCross': return this.updateWaitCross(p, dt);
       case 'copFoot': return this.updateCopFoot(p, dt);
+      case 'sentry': {
+        // story guard / target / contact: hold position (or patrol), keep looking around
+        if (!p.patrol) p.speed = damp(p.speed, 0, 6, dt);
+        p.headScan = p.contact ? 0 : Math.sin(this.t * 0.7 + p.phase) * 0.9;
+        if (p.contact && p.look) p.heading += wrapAngle(Math.atan2(p.look.x - p.x, p.look.z - p.z) - p.heading) * Math.min(1, dt * 3);
+        return;
+      }
       case 'guard': {
         // soldier at a military roadblock: hold position, face the threat
         p.speed = damp(p.speed, 0, 6, dt);
@@ -617,7 +624,7 @@ export class People {
     p.look = t; p.lookT = 0.5;
     const los = d < 45 && !g.city.segmentBlocked(p.x, p.z, t.x, t.z, 0.4);
     p.arresting = false;
-    if (t.kind === 'avatar' && d < 2.3 && los) {
+    if (t.kind === 'avatar' && d < 2.3 && los && !p.noArrest) {
       // close enough to grab
       p.aiming = false; p.arresting = true;
       p.heading += wrapAngle(Math.atan2(dx, dz) - p.heading) * Math.min(1, dt * 8);
@@ -696,7 +703,7 @@ export class People {
       const fwd = rx * sin + rz * cos, side = rx * cos - rz * sin;
       if (Math.abs(fwd) < v.L / 2 + 0.25 && Math.abs(side) < v.W / 2 + 0.25) {
         if (sp2 > 7) {
-          if (p.copFoot) { p.hp = (p.hp ?? 40) - Math.sqrt(sp2) * 3; if (p.hp <= 0 && !p.dead) { p.dead = true; this.game.onOfficerDown?.(p, v); } }
+          if (p.copFoot || p.hostile) { p.hp = (p.hp ?? 40) - Math.sqrt(sp2) * 3; if (p.hp <= 0 && !p.dead) { p.dead = true; this.game.onOfficerDown?.(p, v); } }
           this.knock(p, v.vx, v.vz);
           if (!p.copFoot) this.game.onPedestrianHit?.(p, v);
         } else {
@@ -705,7 +712,7 @@ export class People {
         }
         return;
       }
-      if (sp2 < 30 || p.mode === 'dodge') continue;
+      if (sp2 < 30 || p.mode === 'dodge' || p.hostile) continue; // targets and guards don't dive clear
       const t = -(rx * v.vx + rz * v.vz) / sp2;
       if (t < 0 || t > 1.5) continue;
       const cx = rx + v.vx * t, cz = rz + v.vz * t;

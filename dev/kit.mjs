@@ -1,0 +1,12 @@
+import { chromium } from 'playwright-core';
+const [out, only = ''] = process.argv.slice(2);
+const b = await chromium.launch({ executablePath: '/usr/bin/google-chrome', args: ['--use-angle=vulkan', '--enable-features=Vulkan'] });
+const p = await b.newPage({ viewport: { width: 1600, height: 900 } });
+p.on('pageerror', (e) => console.log('ERR', e.message));
+await p.goto('http://localhost:5180/dev/kit.html' + (only ? '?only=' + only : ''));
+await p.waitForFunction(() => window.__done, null, { timeout: 60000 });
+const info = await p.evaluate(() => window.__info);
+for (const [k, v] of Object.entries(info)) console.log(k.padEnd(20), JSON.stringify(v.size), JSON.stringify(v.min), v.mats);
+await p.waitForTimeout(1500);
+await p.screenshot({ path: out });
+await b.close();

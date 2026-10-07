@@ -3,6 +3,7 @@ const flags = (process.env.FLAGS || '--use-angle=vulkan --enable-features=Vulkan
 const browser = await chromium.launch({ executablePath: '/usr/bin/google-chrome', headless: process.env.HEADED ? false : true, args: flags });
 const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 const logs = [];
+if (process.env.NOKIT) await page.addInitScript(() => { window.__noKit = true; });
 page.on('pageerror', (e) => logs.push(e.message));
 await page.goto('http://localhost:5180/', { waitUntil: 'domcontentloaded', timeout: 90000 }); if (process.env.NOPEOPLE) await page.evaluate(() => { window.__noPeople = true; }); if (process.env.NORIGS) await page.evaluate(() => { window.__noRigs = true; }); if (process.env.HEAT) await page.evaluate((h) => { window.__heat = h; }, process.env.HEAT);
 const r = await page.evaluate(() => { const c = document.createElement('canvas').getContext('webgl2'); const e = c.getExtension('WEBGL_debug_renderer_info'); return e ? c.getParameter(e.UNMASKED_RENDERER_WEBGL) : 'n/a'; });

@@ -11,7 +11,7 @@ const DEFAULTS = () => ({
   map: 'city',
   best: {},        // mapId -> { score, time }
   totals: { runs: 0, copsWrecked: 0, coins: 0, time: 0 },
-  settings: { quality: 'medium', camera: 'top', sound: true, music: true, fps: false, intro: true, joyInvSteer: false, joyInvThrottle: false },
+  settings: { quality: 'medium', camera: 'top', sound: true, music: true, fps: false, intro: true, voice: true, joyInvSteer: false, joyInvThrottle: false },
 });
 
 export function loadSave() {

@@ -59,6 +59,7 @@ export class Combat {
     const h = g.police.heli;
     if (h && !h.falling) out.push({ kind: 'heli', ref: h, x: h.x, y: h.y, z: h.z, r: 4 });
     for (const s of g.military.gunships) if (!s.falling) out.push({ kind: 'heli', ref: s, x: s.x, y: s.y, z: s.z, r: 4.5 });
+    g.mission?.hostiles?.(out); // story targets, guards and getaway cars
     return out;
   }
 
@@ -85,6 +86,7 @@ export class Combat {
     dx += (Math.random() - 0.5) * spread * 2; dy += (Math.random() - 0.5) * spread; dz += (Math.random() - 0.5) * spread * 2;
     const n = Math.hypot(dx, dy, dz);
     this.bullets.push({ x, y, z, vx: dx / n * speed, vy: dy / n * speed, vz: dz / n * speed, life: 1.1, dmg, owner });
+    if (owner === 'player') this.game.mission?.onNoise?.(x, z); // guards hear gunfire
     this.game.effects.glowP.spawn(x, y, z, 0, 0, 0, 1, 0.8, 0.4, 0.55, 0.05, { alpha: 1 });
   }
 
@@ -180,8 +182,10 @@ export class Combat {
     const hx = p.x + Math.sin(p.heading) * 0.5, hz = p.z + Math.cos(p.heading) * 0.5, hy = p.y + 1.35;
     const lead = 0.12;
     const tx = t.x + t.vx * lead, tz = t.z + t.vz * lead, ty = (t.y || 0) + (t.kind === 'avatar' ? 1.1 : 0.9);
-    const spread = 0.08 + Math.min(0.14, t.speed * 0.01);
-    this.fireBullet(hx, hy, hz, tx - hx, ty - hy, tz - hz, { speed: 90, dmg: t.kind === 'avatar' ? 4.5 : 2.5, spread, owner: 'cop' });
+    const sd = this.game.storyDiff;
+    const acc = sd === undefined ? 1 : 1.3 - sd * 0.6, hurt = sd === undefined ? 1 : 0.6 + sd * 0.9;
+    const spread = (0.08 + Math.min(0.14, t.speed * 0.01)) * acc;
+    this.fireBullet(hx, hy, hz, tx - hx, ty - hy, tz - hz, { speed: 90, dmg: (t.kind === 'avatar' ? 4.5 : 2.5) * hurt, spread, owner: 'cop' });
     this.game.audio.gunshot?.('cop', Math.hypot(p.x - this.game.player.x, p.z - this.game.player.z));
   }
 

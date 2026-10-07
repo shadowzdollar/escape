@@ -111,7 +111,7 @@ export class SerialJoystick {
     this.bridge = ctrl;
     let res;
     try { res = await fetch('/joy-bridge', { signal: ctrl.signal, cache: 'no-store' }); } catch { res = null; }
-    if (!res || !res.ok || !res.body) {
+    if (!res || !res.ok || !res.body || res.headers.get('X-Joy-Port') === 'none') {
       if (this.bridge === ctrl) this.bridge = null;
       if (!this.connected) { clearTimeout(this.retry); this.retry = setTimeout(() => this.autoConnect(true), 5000); }
       return;

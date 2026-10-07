@@ -288,3 +288,54 @@ body.is-touch .controls-hint { display: none; }
 .controls-grid h3 { font-family: var(--title); font-size: 14px; letter-spacing: 2px; color: var(--accent); margin: 0 0 8px; }
 .controls-grid p { margin: 5px 0; font-size: 14px; color: var(--ink); line-height: 1.5; }
 .controls-grid .mk { color: #35f2ff; }
+
+/* ---------------- story: the long road */
+.story-v2 { width: min(1180px, 96vw) !important; max-height: 92vh; display: flex; flex-direction: column; gap: 12px; }
+.story-top { display: flex; align-items: center; gap: 14px; }
+.story-prog { flex: 1; height: 10px; border-radius: 6px; background: rgba(255,255,255,.08); overflow: hidden; }
+.story-prog i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), #ff6b3d); }
+#story-pct { font-weight: 700; color: var(--muted); font-size: 14px; white-space: nowrap; }
+#story-rank b { color: var(--accent); }
+.story-body { display: grid; grid-template-columns: 300px 1fr; gap: 16px; min-height: 0; flex: 1; overflow: hidden; }
+.seq-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; padding-right: 4px; }
+.seq { position: relative; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.05); border: 1px solid var(--line); cursor: pointer; overflow: hidden; }
+.seq:hover, .seq.sel { background: rgba(255,204,0,.12); border-color: rgba(255,204,0,.5); }
+.seq.locked { opacity: .4; cursor: default; }
+.seq .seq-n { font: 400 24px var(--title); color: var(--accent); width: 30px; text-align: center; }
+.seq > div { min-width: 0; }
+.seq b { display: block; font: 400 15px var(--title); letter-spacing: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seq small { color: var(--muted); font-weight: 700; }
+.seq i { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--accent); }
+.seq-detail { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: hidden; }
+.seq-head small { color: var(--accent); font-weight: 700; letter-spacing: 2px; }
+.seq-head h3 { margin: 2px 0; font: 400 30px var(--title); letter-spacing: 2px; }
+.seq-head em { color: #ffd9a0; font-weight: 600; }
+.seq-head p { margin: 6px 0 0; color: var(--muted); font-weight: 600; line-height: 1.45; }
+.story-tabs { align-self: flex-start; }
+.seq-detail .mission-list { overflow-y: auto; padding-right: 4px; }
+.mission.done .num { color: #3cff7a; }
+@media (max-width: 760px) { .story-body { grid-template-columns: 1fr; overflow-y: auto; } .seq-list { max-height: 180px; } }
+
+.brief-panel { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(760px, 94vw); display: flex; flex-direction: column; gap: 12px; }
+.brief-seq { color: var(--accent); font-weight: 700; letter-spacing: 2px; font-size: 14px; }
+.brief-panel h1 { margin: 0; font: 400 clamp(34px, 5vw, 54px) var(--title); letter-spacing: 3px; }
+.brief-meta { color: var(--muted); font-weight: 700; }
+.brief-meta b { color: #ff6b3d; letter-spacing: 1px; }
+.brief-text { font-size: 18px; line-height: 1.55; font-weight: 600; margin: 4px 0; }
+.brief-obj { color: var(--muted); font-weight: 600; }
+.brief-obj b { color: #3cff7a; }
+.brief-obj ol { margin: 6px 0 0 18px; padding: 0; }
+.brief-btns, .sr-btns { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; justify-content: center; }
+.sresult-panel .sr-reason { font-size: 18px; font-weight: 700; color: #ffd9a0; min-height: 1em; }
+.fail-title { color: #ff3b3b !important; text-shadow: 0 0 30px rgba(255,59,59,.5) !important; font-size: 46px !important; margin: 0; }
+
+/* HUD: dialogue subtitles, mission title card, police response */
+.subtitle { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); max-width: min(820px, 90vw); text-align: center; padding: 10px 18px; border-radius: 10px; background: rgba(5,8,14,.72); font: 600 19px var(--text); line-height: 1.4; color: #fff; opacity: 0; transition: opacity .25s; pointer-events: none; }
+.subtitle.show { opacity: 1; }
+.subtitle b { font: 400 15px var(--title); letter-spacing: 2px; margin-right: 10px; }
+.title-card { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); text-align: center; opacity: 0; pointer-events: none; }
+.title-card.show { animation: titlecard 4.2s ease-out forwards; }
+.title-card small { display: block; color: var(--accent); font-weight: 700; letter-spacing: 3px; }
+.title-card h2 { margin: 4px 0 0; font: 400 clamp(30px, 4.5vw, 56px) var(--title); letter-spacing: 4px; color: #fff; text-shadow: 0 4px 20px rgba(0,0,0,.8); }
+@keyframes titlecard { 0% { opacity: 0; transform: translate(-50%, 12px); } 12% { opacity: 1; transform: translate(-50%, 0); } 80% { opacity: 1; } 100% { opacity: 0; } }
+#h-obj-threat { font: 400 13px var(--title); letter-spacing: 1px; color: #ff6b6b; margin-top: 2px; }

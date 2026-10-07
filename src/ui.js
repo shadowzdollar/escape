@@ -2,7 +2,9 @@
 import { CARS, MAPS, PAINTS, POWERUPS, COIN_VALUE, WANTED } from './config.js';
 import { BOATS, VEHICLE_WEAPONS } from './warVehicles.js';
 import { BOAT_STATS } from './boats.js';
-import { MISSIONS, TROPHIES } from './campaign.js';
+import { TROPHIES } from './campaign.js';
+import { SEQUENCES, STORY, contractsFor, rankOf, xpForRank, storyUnlocked, sequenceUnlocked, nextStoryMission, progress, getMission, TOTAL_MISSIONS } from './story/index.js';
+import { speaker } from './story/characters.js';
 import { formatTime } from './utils.js';
 import { Vector3 as THREE_VEC } from 'three';
 const WEAPON_NAMES = { pistol: 'PISTOL', smg: 'SMG', rpg: 'ROCKETS' };
@@ -12,7 +14,7 @@ const $ = (s) => document.querySelector(s);
 export class UI {
   constructor(game) {
     this.game = game;
-    this.screens = ['loading', 'menu', 'modes', 'story', 'trophies', 'garage', 'maps', 'settings', 'controls', 'hud', 'pause', 'gameover', 'win'];
+    this.screens = ['loading', 'menu', 'modes', 'story', 'trophies', 'garage', 'maps', 'settings', 'controls', 'hud', 'pause', 'gameover', 'win', 'brief', 'sresult'];
     this.garageIndex = 0;
     this.comboTimer = 0;
     this.h = {
@@ -59,7 +61,7 @@ export class UI {
     const top = [...this.current].reverse().find((n) => n !== 'hud' && n !== 'loading');
     if (!top) return [];
     const root = document.getElementById(top);
-    return [...root.querySelectorAll('.btn, .map-card, .mode-card, .mission:not(.locked), .seg button, .paints button')]
+    return [...root.querySelectorAll('.btn, .map-card, .mode-card, .seq:not(.locked), .mission:not(.locked), .seg button, .paints button')]
       .filter((el) => el.offsetParent !== null && !el.classList.contains('disabled') && !el.classList.contains('pause-btn'));
   }
 
@@ -89,7 +91,7 @@ export class UI {
       requestAnimationFrame(() => this.refreshFocus());
       return;
     } else if (e === 'L') {
-      const back = document.querySelector('#controls.show [data-action="controls-back"]') || document.querySelector('.screen.show [data-action="back"], .screen.show [data-action="resume"]');
+      const back = document.querySelector('#controls.show [data-action="controls-back"]') || document.querySelector('#brief.show [data-action="brief-back"]') || document.querySelector('#story.show [data-action="modes"]') || document.querySelector('.screen.show [data-action="back"], .screen.show [data-action="resume"]');
       if (back) { this.game.audio.click(); back.click(); }
       return;
     }
@@ -121,6 +123,14 @@ export class UI {
       case 'story': if (g.state !== 'menu') g.toMenu(); this.openStory(); break;
       case 'trophies': this.openTrophies(); break;
       case 'next-mission': { const n = this.nextMission; if (n) g.startMission(n.id); break; }
+      case 'story-continue': { const n = nextStoryMission(g.save); if (n) this.openBrief(n); break; }
+      case 'brief-start': if (this.briefDef) { g.audio.init(); g.startMission(this.briefDef.id, 0); } break;
+      case 'brief-checkpoint': { const cp = g.save.story?.checkpoint; if (this.briefDef && cp?.id === this.briefDef.id) { g.audio.init(); g.startMission(cp.id, cp.step); } break; }
+      case 'brief-back': this.openStory(this.storySeq); break;
+      case 'sr-next': if (this.nextMission) { g.toMenu(); this.openBrief(this.nextMission); } break;
+      case 'sr-retry': if (this.srDef) g.startMission(this.srDef.id, this.srStep || 0); break;
+      case 'sr-restart': if (this.srDef) g.startMission(this.srDef.id, 0); break;
+      case 'sr-story': g.toMenu(); this.openStory(this.srDef?.seq); break;
       case 'garage': this.openGarage(); break;
       case 'garage-from-over': g.toMenu(); this.openGarage(); break;
       case 'maps': this.openMaps(); break;
@@ -139,31 +149,147 @@ export class UI {
   }
 
   openModes() {
-    const camp = this.game.save.campaign || { unlocked: 1, stars: {} };
-    const done = Object.keys(camp.stars).length;
-    $('#story-progress').textContent = `${done}/${MISSIONS.length} COMPLETE · ${Object.values(camp.stars).reduce((a, b) => a + b, 0)}/${MISSIONS.length * 3} ★`;
+    const pr = progress(this.game.save);
+    $('#story-progress').textContent = `${pr.pct}% OF THE STORY · ${pr.total}/${TOTAL_MISSIONS} MISSIONS · RANK ${rankOf(this.game.save.story?.xp || 0)}`;
     this.show('modes');
   }
 
-  openStory() {
-    const g = this.game, camp = g.save.campaign || { unlocked: 1, stars: {} };
-    $('#mission-list').innerHTML = MISSIONS.map((m, i) => {
-      const locked = i + 1 > camp.unlocked;
-      const st = camp.stars[m.id] || 0;
-      const map = MAPS.find((x) => x.id === m.map);
-      return `<div class="mission ${locked ? 'locked' : ''}" data-mission="${m.id}">
-        <div class="num">${locked ? '🔒' : i + 1}</div>
-        <div><h4>${m.name}</h4><p>${locked ? 'Beat the previous mission to unlock.' : m.brief}</p></div>
-        <div class="meta"><b>${'★'.repeat(st)}${'☆'.repeat(3 - st)}</b>${map ? map.name : m.map} · <span class="diff">${'●'.repeat(m.difficulty)}</span><br><span class="coin-ico"></span> ${m.reward.toLocaleString()}</div>
-      </div>`;
+  // ---------------------------------------------------------------- story menu
+  openStory(seqN = null) {
+    const g = this.game, sv = g.save;
+    const st = sv.story || {};
+    const next = nextStoryMission(sv);
+    this.storySeq = seqN || this.storySeq || next?.seq || 1;
+    this.storyTab ||= 'story';
+    const pr = progress(sv);
+    const xp = st.xp || 0, rank = rankOf(xp);
+    const into = xp - xpForRank(rank), need = xpForRank(rank + 1) - xpForRank(rank);
+    $('#story-rank').innerHTML = `RANK <b>${rank}</b> · ${rank >= 50 ? 'MAX' : `${into}/${need} XP`}`;
+    $('#story-bar').style.width = `${pr.pct}%`;
+    $('#story-pct').textContent = `${pr.pct}% STORY · ${pr.story}/${STORY.length} MISSIONS · ${pr.contracts} CONTRACTS`;
+    const cont = $('#story-continue');
+    const cp = st.checkpoint && getMission(st.checkpoint.id);
+    cont.textContent = next ? `CONTINUE: ${next.title}` : 'STORY COMPLETE';
+    cont.classList.toggle('disabled', !next);
+    void cp;
+    // sequences
+    $('#seq-list').innerHTML = SEQUENCES.map((q) => {
+      const open = sequenceUnlocked(sv, q);
+      const n = q.missions.filter((m) => st.done?.[m.id]).length;
+      return `<div class="seq ${open ? '' : 'locked'} ${q.n === this.storySeq ? 'sel' : ''}" data-seq="${q.n}">
+        <span class="seq-n">${open ? q.n : '🔒'}</span><div><b>${q.title}</b><small>${open ? `${n}/${q.missions.length}` : 'LOCKED'}</small></div>
+        <i style="width:${(n / q.missions.length) * 100}%"></i></div>`;
     }).join('');
+    $('#seq-list').onclick = (e) => {
+      const el = e.target.closest('[data-seq]');
+      if (!el || el.classList.contains('locked')) return;
+      g.audio.click();
+      this.openStory(+el.dataset.seq);
+    };
+    const tabs = $('#story-tabs');
+    for (const b of tabs.querySelectorAll('[data-tab]')) b.classList.toggle('sel', b.dataset.tab === this.storyTab);
+    tabs.onclick = (e) => { const b = e.target.closest('[data-tab]'); if (b) { g.audio.click(); this.storyTab = b.dataset.tab; this.openStory(this.storySeq); } };
+    this.renderSequence();
+    if (!this.current.includes('story')) this.show('story');
+  }
+
+  renderSequence() {
+    const g = this.game, sv = g.save, st = sv.story || {};
+    const q = SEQUENCES[this.storySeq - 1];
+    const map = MAPS.find((m) => m.id === q.map);
+    $('#seq-head').innerHTML = `<small>SEQUENCE ${q.n} · ${map ? map.name : q.map}</small><h3>${q.title}</h3><em>${q.tagline}</em><p>${q.desc}</p>`;
+    const open = sequenceUnlocked(sv, q);
+    let list;
+    if (this.storyTab === 'contracts') {
+      const rank = rankOf(st.xp || 0);
+      list = contractsFor(q.n, rank).map((m) => {
+        const d = st.done?.[m.id];
+        return `<div class="mission ${open ? '' : 'locked'} ${d ? 'done' : ''}" data-mission="${m.id}">
+          <div class="num">${d ? '✓' : m.n}</div>
+          <div><h4>${m.title}</h4><p>${open ? m.brief : 'Reach this sequence in the story to unlock its contracts.'}</p></div>
+          <div class="meta"><b>${m.type}</b>TIER ${m.tier + 1} · ${m.steps.length} STEPS<br><span class="coin-ico"></span> ${m.reward.toLocaleString()} · ${m.xp} XP</div></div>`;
+      });
+    } else {
+      list = q.missions.map((m) => {
+        const d = st.done?.[m.id], ok = !!d || storyUnlocked(sv, m);
+        const cp = st.checkpoint?.id === m.id ? ` · CHECKPOINT ${st.checkpoint.step + 1}` : '';
+        return `<div class="mission ${ok ? '' : 'locked'} ${d ? 'done' : ''}" data-mission="${m.id}">
+          <div class="num">${d ? '✓' : ok ? m.n : '🔒'}</div>
+          <div><h4>${m.title}</h4><p>${ok ? m.brief : 'Complete the previous mission to unlock.'}</p></div>
+          <div class="meta"><b>${d ? 'DONE' : ok ? 'PLAY' : ''}</b>${m.steps.length} STEPS${cp}<br><span class="coin-ico"></span> ${m.reward.toLocaleString()} · ${m.xp} XP</div></div>`;
+      });
+    }
+    $('#mission-list').innerHTML = list.join('');
     $('#mission-list').onclick = (e) => {
       const el = e.target.closest('[data-mission]');
       if (!el || el.classList.contains('locked')) return;
       g.audio.init(); g.audio.click();
-      g.startMission(el.dataset.mission);
+      this.openBrief(getMission(el.dataset.mission));
     };
-    this.show('story');
+  }
+
+  // ---------------------------------------------------------------- briefing
+  openBrief(def) {
+    if (!def) return;
+    const g = this.game, st = g.save.story || {};
+    this.briefDef = def;
+    this.storySeq = def.seq;
+    const map = MAPS.find((m) => m.id === def.map);
+    $('#brief-seq').textContent = def.kind === 'story' ? `SEQUENCE ${def.seq} · ${def.seqTitle} · MISSION ${def.n}` : `CONTRACT · ${def.type} · SEQUENCE ${def.seq}`;
+    $('#brief-title').textContent = def.title;
+    const diff = Math.round(def.diff * 10) + 1;
+    $('#brief-meta').innerHTML = `${map ? map.name : def.map} · DIFFICULTY <b>${'▮'.repeat(Math.min(10, diff))}${'▯'.repeat(Math.max(0, 10 - diff))}</b> · <span class="coin-ico"></span> ${def.reward.toLocaleString()} · ${def.xp} XP${def.unlock ? ' · UNLOCKS A VEHICLE' : ''}`;
+    $('#brief-text').textContent = def.brief;
+    const labels = def.steps.map((s) => s.label).filter(Boolean);
+    $('#brief-obj').innerHTML = `<b>${def.steps.length} OBJECTIVES</b> — every objective is a checkpoint` + (labels.length ? `<ol>${labels.slice(0, 3).map((l) => `<li>${l}</li>`).join('')}${labels.length > 3 ? '<li>…</li>' : ''}</ol>` : '');
+    $('#brief-cp').style.display = st.checkpoint?.id === def.id && st.checkpoint.step > 0 ? '' : 'none';
+    this.show('brief');
+  }
+
+  // ---------------------------------------------------------------- results
+  showStoryWin(r) {
+    const d = r.def;
+    this.srDef = d; this.srStep = 0;
+    this.nextMission = r.next;
+    $('#sr-seq').textContent = d.kind === 'story' ? `SEQUENCE ${d.seq} · MISSION ${d.n}` : `CONTRACT · ${d.type}`;
+    const t = $('#sr-title');
+    t.textContent = d.final ? 'THE END' : d.kind === 'story' && d.n === 10 ? 'SEQUENCE COMPLETE' : 'MISSION COMPLETE';
+    t.className = 'win-title';
+    $('#sr-name').textContent = d.title;
+    $('#sr-reason').textContent = d.final ? 'The Consortium has fallen. Thank you for playing The Long Road.' : '';
+    $('#sr-stats').innerHTML = `<span>Time</span><b>${formatTime(r.time)}</b><span>Reward</span><b><span class="coin-ico"></span> ${r.reward.toLocaleString()}${r.first ? '' : ' (replay)'}</b>
+      <span>Experience</span><b>+${r.xp} XP</b><span>Rank</span><b>${r.rank1 > r.rank0 ? `${r.rank0} → ${r.rank1} RANK UP!` : r.rank1}</b>`;
+    $('#sr-unlock').textContent = r.unlocked ? `NEW VEHICLE UNLOCKED: ${r.unlocked}` : r.next && d.kind === 'story' ? `NEXT: ${r.next.title}` : '';
+    $('#sr-unlock').classList.toggle('show', !!$('#sr-unlock').textContent);
+    $('#sr-btns').innerHTML = (r.next ? '<button class="btn big primary" data-action="sr-next">NEXT MISSION</button>' : '')
+      + '<button class="btn" data-action="sr-restart">REPLAY</button><button class="btn" data-action="sr-story">STORY MENU</button>';
+    this.show('sresult');
+  }
+
+  showStoryFail(r) {
+    const d = r.def;
+    this.srDef = d; this.srStep = r.step || 0;
+    $('#sr-seq').textContent = d.kind === 'story' ? `SEQUENCE ${d.seq} · MISSION ${d.n}` : `CONTRACT · ${d.type}`;
+    const t = $('#sr-title');
+    t.textContent = 'MISSION FAILED';
+    t.className = 'fail-title';
+    $('#sr-name').textContent = d.title;
+    $('#sr-reason').textContent = r.reason;
+    $('#sr-stats').innerHTML = `<span>Checkpoint</span><b>${(r.step || 0) + 1} / ${d.steps.length}</b><span>Objective</span><b>${d.steps[r.step || 0]?.label || '—'}</b>`;
+    $('#sr-unlock').textContent = '';
+    $('#sr-unlock').classList.remove('show');
+    $('#sr-btns').innerHTML = `<button class="btn big primary" data-action="sr-retry">RETRY FROM CHECKPOINT</button><button class="btn" data-action="sr-restart">RESTART MISSION</button><button class="btn" data-action="sr-story">STORY MENU</button>`;
+    this.show('sresult');
+  }
+
+  // Mission title card at the start (or checkpoint) of a mission.
+  storyTitle(def, step) {
+    $('#h-title-seq').textContent = def.kind === 'story' ? `SEQUENCE ${def.seq} · ${def.seqTitle}` : `CONTRACT · ${def.type}`;
+    $('#h-title-name').textContent = step > 0 ? `${def.title} · CHECKPOINT ${step + 1}` : def.title;
+    const el = $('#h-title');
+    el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+    clearTimeout(this.titleT);
+    this.titleT = setTimeout(() => el.classList.remove('show'), 4200);
   }
 
   openTrophies() {
@@ -190,6 +316,19 @@ export class UI {
     const g = this.game, m = g.mission;
     const panel = this._obj || (this._obj = $('#h-obj'));
     const arrow = this._arr || (this._arr = $('#h-arrow'));
+    // dialogue subtitles
+    const sub = this._sub || (this._sub = $('#h-sub'));
+    const line = m?.subtitle?.();
+    if (line) {
+      if (this._subKey !== line.text) {
+        this._subKey = line.text;
+        $('#h-sub-name').textContent = line.name;
+        $('#h-sub-name').style.color = line.color;
+        $('#h-sub-text').textContent = line.text;
+      }
+      sub.classList.add('show');
+    } else { sub.classList.remove('show'); this._subKey = null; }
+    this.h.stars.style.display = m ? 'none' : '';
     if (!m || m.done) { panel.classList.remove('show'); arrow.classList.remove('show'); return; }
     const st = m.status();
     panel.classList.add('show');
@@ -197,6 +336,9 @@ export class UI {
     $('#h-obj-clock').textContent = st.clock;
     $('#h-obj-label').textContent = st.label;
     $('#h-obj-prog').textContent = st.prog;
+    const th = this._th || (this._th = $('#h-obj-threat'));
+    const thText = st.threat ? `POLICE: ${st.threat}` : '';
+    if (th.textContent !== thText) th.textContent = thText;
     const t = m.target();
     if (!t) { arrow.classList.remove('show'); return; }
     const v = (this._v2 ||= new THREE_VEC()).set(t.x, 2, t.z).project(g.camera);

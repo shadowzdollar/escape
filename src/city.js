@@ -8,8 +8,11 @@ import { mulberry32, clamp, rand, randInt, pick, valueNoise2D } from './utils.js
 import {
   asphaltTexture, groundTexture, sidewalkTexture, facadeTextures, radialTexture, signTexture, asphaltDetailMaps,
 } from './textures.js';
+import { cityKit } from './cityKit.js';
 
 const { N, BLOCK, ROAD, SIDEWALK, CELL, RIVER_ROW, HALF } = CITY;
+// Objects on this layer are drawn only by the sun's shadow camera (cheap shadow proxies).
+export const SHADOW_LAYER = 1;
 const RH = ROAD / 2;
 export const rc = (i) => (i - N / 2) * CELL; // road-center coordinate for line i
 
@@ -488,8 +491,10 @@ export class City {
     for (const [style, tx] of Object.entries(this.facadeTex)) {
       this.facadeMats[style] = new THREE.MeshStandardMaterial({
         map: tx.map, emissiveMap: tx.emissive, emissive: new THREE.Color(this.night ? 0xffe2b0 : 0x000000),
-        emissiveIntensity: this.night ? 1.25 : 0, vertexColors: true, roughness: style === 'glass' ? 0.25 : 0.8,
-        metalness: style === 'glass' ? 0.5 : 0.05,
+        emissiveIntensity: this.night ? 1.25 : 0, vertexColors: true,
+        // per-pixel surface: matte walls, glossy reflective windows set back behind sills and ledges
+        roughness: 1, metalness: 1, roughnessMap: tx.orm, metalnessMap: tx.orm,
+        normalMap: tx.normal, normalScale: new THREE.Vector2(0.9, 0.9),
       });
       applyCutout(this.facadeMats[style]);
     }
@@ -553,6 +558,26 @@ export class City {
     addPropType('tlLampA', lampG, this.tlMat.a, { cast: false });
     addPropType('tlLampB', lampG, this.tlMat.b, { cast: false });
 
+    // CC0 Quaternius models (cityKit.js); the procedural shapes above stay as the fallback
+    this.kit = cityKit();
+    this.kitParts = {};
+    const groundCover = /^(grass|grassTuft|clover|fern|flowers|plant)/;
+    for (const [name, k] of Object.entries(this.kit)) {
+      // LOD distance factor (x lodRange): ground cover fades out, streetlights swap to a simple pole early
+      const near = groundCover.test(name) ? 0.7 : name === 'streetlight' ? 0.6 : /^(tree|maple|pine|palm)/.test(name) ? 0.7 : /^(house|building)/.test(name) ? 0.8 : /^(rock|boxes|trashBags|hydrant|cone|trashcan|ac|acStack|antenna|fence|barrier|plasticBarrier)/.test(name) ? 1 : 0;
+      if (/^(house|building)/.test(name)) for (const part of k.parts) applyCutout(part.mat);
+      this.kitParts[name] = k.parts.map((part, i) => {
+        const sub = `k_${name}_${i}`;
+        const light = name === 'streetlight' && part.mat.name === 'Light';
+        // foliage shadows (alpha-tested, many instances) only on High; buildings and props always
+        const cast = !groundCover.test(name) && !light && (this.quality === 'high' || /^(house|building|waterTower|dumpster)/.test(name));
+        // below High, big models cast their shadow from the simplified copy (layer 1 = shadow pass only)
+        const proxy = this.quality !== 'high' && !!part.lo && /^(house|building|tree|maple|pine|palm)/.test(name);
+        P[sub] = { geo: part.geo, geoLo: part.lo, mat: light ? this.lampHeadMat : part.mat, list: [], cast: cast && !proxy, proxy, colors: true, near };
+        return sub;
+      });
+    }
+
     this.generateBlocks();
     this.buildRoads();
     this.buildStreetLife();
@@ -580,11 +605,34 @@ export class City {
     return list.length - 1;
   }
 
+  // ---- Quaternius kit helpers
+  has(name) { return !!this.kitParts?.[name]; }
+  kpick(names) { const a = names.filter((n) => this.has(n)); return a.length ? pick(this.rng, a) : null; }
+  // place every part of a kit model; returns breakable parts [[subProp, index], ...]
+  kprop(name, x, y, z, rotY = 0, scale = 1, color = null, sx = scale, sy = scale, sz = scale) {
+    return this.kitParts[name].map((sub) => [sub, this.prop(sub, x, y, z, rotY, scale, color, sx, sy, sz)]);
+  }
+
   tree(x, z, y = 0.15, collide = true) {
     const rng = this.rng;
     const T = this.theme;
     const s = rand(rng, 0.8, 1.25);
     const kind = T.tree;
+    if (this.has('tree0')) {
+      let name, color = '#ffffff';
+      const r = rng();
+      if (kind === 'palm') name = this.kpick(['palm0', 'palm1', 'palm2']);
+      else if (kind === 'pine') name = r < 0.55 ? this.kpick(['pineSnow']) || 'pine0' : this.kpick(['pine0', 'pine1']);
+      else {
+        name = r < 0.06 ? this.kpick(['maple0', 'maple1']) : r < 0.14 ? this.kpick(['pine0', 'pine1']) : this.kpick(['tree0', 'tree1', 'tree2', 'tree3', 'tree4']);
+        color = pick(rng, ['#ffffff', '#f3f8e8', '#e8f0d6', '#fff6e2', '#e2ebd0']);
+      }
+      if (name) {
+        this.kprop(name, x, y, z, rng() * Math.PI * 2, rand(rng, 0.85, 1.15), color);
+        if (collide) this.addCircle(x, z, 0.45 * s, 'tree');
+        return;
+      }
+    }
     if (kind === 'pine') {
       this.prop('trunk', x, y, z, 0, s * 0.8);
       this.prop('pine', x, y, z, rng() * 6, s, pick(rng, ['#2d5a3d', '#35684a', '#264d36', '#3f6e4f']));
@@ -601,11 +649,22 @@ export class City {
 
   smallTree(x, z, y) {
     const rng = this.rng;
+    if (this.theme.tree !== 'palm' && this.has('bush')) {
+      const name = this.theme.tree === 'pine' ? this.kpick(['bushSnow', 'bush']) : this.kpick(['bush', 'bush', 'bushFlowers', 'plant']);
+      this.kprop(name, x, y, z, rng() * 6, rand(rng, 0.8, 1.25));
+      return;
+    }
     if (this.theme.tree === 'palm') this.prop('cactus', x, y, z, rng() * 6, rand(rng, 0.7, 1.1), pick(rng, ['#4f7f3a', '#5a8a42']));
     else this.prop('bush', x, y, z, rng() * 6, rand(rng, 0.7, 1.3), this.theme.tree === 'pine' ? '#e8eef4' : pick(rng, ['#3f7a33', '#4c8c3a', '#5a9a44']));
   }
 
   lamp(x, z, rotY) {
+    if (this.has('streetlight')) {
+      const parts = this.kprop('streetlight', x, 0.15, z, rotY);
+      if (this.night) parts.push(['pool', this.prop('pool', x, 0, z, rotY)]);
+      this.addCircle(x, z, 0.3, 'lamp', { parts, kind: 'lamp' });
+      return;
+    }
     const a = this.prop('lampPole', x, 0.15, z, rotY);
     const b = this.prop('lampHead', x, 0.15, z, rotY);
     let c = -1;
@@ -614,6 +673,11 @@ export class City {
   }
 
   breakableProp(name, x, z, rotY, r) {
+    const model = { hydrant: 'hydrant', trash: 'trashcan', cone: 'cone' }[name];
+    if (model && this.has(model)) {
+      this.addCircle(x, z, r, name, { parts: this.kprop(model, x, 0.15, z, rotY), kind: name, rotY });
+      return;
+    }
     const idx = this.prop(name, x, 0.15, z, rotY);
     this.addCircle(x, z, r, name, { parts: [[name, idx]], kind: name, rotY });
   }
@@ -645,6 +709,8 @@ export class City {
         else if (d < 0.66 + (n - 0.5) * 0.3) type = 'midtown';
         else type = 'suburb';
         if (theme === 'desert' && type === 'downtown' && d > 0.2) type = 'midtown';
+        // old town: rows of European townhouses (Quaternius) in part of midtown
+        if (type === 'midtown' && (theme === 'city' || theme === 'snow') && this.has('house0') && this.noise(i * 0.9 + 3.1, j * 0.9 + 7.7) > 0.52) type = 'oldtown';
         const chunk = `${Math.floor(i / 2)},${Math.floor(j / 2)}`;
         const blk = { i, j, x0, x1, z0, z1, type, d, chunk };
         this.blocks.push(blk);
@@ -696,6 +762,7 @@ export class City {
     switch (b.type) {
       case 'downtown': this.buildDowntown(b, ix0, ix1, iz0, iz1); break;
       case 'midtown': this.buildMidtown(b, ix0, ix1, iz0, iz1); break;
+      case 'oldtown': this.buildOldTown(b, ix0, ix1, iz0, iz1); break;
       case 'suburb': this.buildSuburb(b, ix0, ix1, iz0, iz1); break;
       case 'industrial': this.buildIndustrial(b, ix0, ix1, iz0, iz1); break;
       case 'park': this.buildPark(b, ix0, ix1, iz0, iz1); break;
@@ -760,7 +827,15 @@ export class City {
       const nAc = randInt(rng, 1, 4);
       for (let k = 0; k < nAc; k++) {
         const ax = rand(rng, t0 + 2, t1 - 4), az = rand(rng, s0 + 2, s1 - 4);
-        pbox(roof, ax, ax + rand(rng, 1.5, 3), ty, ty + rand(rng, 1, 2), az, az + rand(rng, 1.5, 3), ac);
+        // rooftop air-conditioning units (Quaternius), boxes as the fallback
+        if (this.has('ac')) this.kprop(rng() < 0.6 ? 'ac' : this.kpick(['acStack', 'ac']), ax + 1, ty + (rng() < 0.6 ? 0.3 : 0), az + 1, Math.floor(rng() * 4) * Math.PI / 2, rand(rng, 0.9, 1.2));
+        else pbox(roof, ax, ax + rand(rng, 1.5, 3), ty, ty + rand(rng, 1, 2), az, az + rand(rng, 1.5, 3), ac);
+      }
+      // New York style water tower on mid-rise roofs, antennas on the rest
+      if (kind === 'mid' && w > 9 && d > 9 && !this.sandy && rng() < 0.3 && this.has('waterTower')) {
+        this.kprop('waterTower', rand(rng, t0 + 3, t1 - 3), ty, rand(rng, s0 + 3, s1 - 3), rng() * 6, rand(rng, 0.7, 0.95));
+      } else if (rng() < 0.3 && this.has('antenna')) {
+        this.kprop('antenna', rand(rng, t0 + 1.5, t1 - 1.5), ty, rand(rng, s0 + 1.5, s1 - 1.5), rng() * 6, rand(rng, 0.8, 1.2));
       }
       if (rng() < 0.35 && w > 10) {
         // water tank / stair house
@@ -974,6 +1049,18 @@ export class City {
       const z = alongX ? (rng() < 0.5 ? z0 + 1 : z1 - 1) : z0 + (z1 - z0) * t;
       this.breakableProp(rng() < 0.6 ? 'trash' : 'cone', x, z, rng() * 6, 0.35);
     }
+    // dumpsters, trash bags and boxes against the walls
+    if (this.has('dumpster')) {
+      for (let k = 0; k < 3; k++) {
+        const t = rand(rng, 0.15, 0.85);
+        const w = rng() < 0.5;
+        const x = alongX ? x0 + (x1 - x0) * t : (w ? x0 + 1.1 : x1 - 1.1);
+        const z = alongX ? (w ? z0 + 1.1 : z1 - 1.1) : z0 + (z1 - z0) * t;
+        const rot = alongX ? (w ? 0 : Math.PI) : (w ? Math.PI / 2 : -Math.PI / 2);
+        if (k === 0) { this.kprop('dumpster', x, 0.16, z, rot); this.addCircle(x, z, 1.1, 'dumpster'); }
+        else this.kprop(this.kpick(['trashBags', 'boxes']), x, 0.16, z, rng() * 6, rand(rng, 0.9, 1.2));
+      }
+    }
   }
 
   buildMidtown(b, ix0, ix1, iz0, iz1) {
@@ -1004,6 +1091,62 @@ export class City {
       const ax = ix0 + alleyX * W;
       this.addAlleyProps(b, ax - 4.5, ax + 4.5, iz0, iz1, false);
     }
+  }
+
+  // Perimeter block of townhouses facing the four streets, with a green courtyard inside.
+  buildOldTown(b, ix0, ix1, iz0, iz1) {
+    const rng = this.rng;
+    const K = this.kit;
+    const models = ['house0', 'house1', 'house2', 'houseLarge', 'houseSmall', 'building', 'buildingBig'].filter((n) => this.has(n));
+    const g = this.bucket(b.chunk, 'grass');
+    hquad(g, ix0, iz0, ix1, iz1, 0.16, col('#ffffff'));
+    // pick a row of houses that fills [a, e]; houses are stretched a little to close the gaps
+    const fill = (len) => {
+      const row = [];
+      let used = 0;
+      for (let guard = 0; guard < 20; guard++) {
+        const left = len - used;
+        const fits = models.filter((n) => K[n].size.x <= left);
+        if (!fits.length) break;
+        const name = pick(rng, fits);
+        row.push(name);
+        used += K[name].size.x;
+      }
+      const stretch = Math.min(1.18, len / Math.max(1, used));
+      const gap = (len - used * stretch) / Math.max(1, row.length);
+      return { row, stretch, gap };
+    };
+    const place = (side, a, e, outerZ) => {
+      const { row, stretch, gap } = fill(e - a);
+      let t = a + gap / 2;
+      let deepest = 0;
+      for (const name of row) {
+        const sz = K[name].size, w = sz.x * stretch, d = sz.z, h = sz.y * rand(rng, 0.95, 1.12);
+        const mid = t + w / 2;
+        t += w + gap;
+        deepest = Math.max(deepest, d);
+        const sy = h / sz.y, tint = pick(rng, ['#ffffff', '#f6efe6', '#eef2f6', '#fff4e8']);
+        let x, z, rot;
+        if (side === 'z0') { x = mid; z = outerZ + d / 2; rot = Math.PI; }
+        else if (side === 'z1') { x = mid; z = outerZ - d / 2; rot = 0; }
+        else if (side === 'x0') { x = outerZ + d / 2; z = mid; rot = -Math.PI / 2; }
+        else { x = outerZ - d / 2; z = mid; rot = Math.PI / 2; }
+        this.kprop(name, x, 0.15, z, rot, 1, tint, stretch, sy, 1);
+        const along = side[0] === 'z';
+        const hx = along ? w / 2 : d / 2, hz = along ? d / 2 : w / 2;
+        this.addBox(x - hx, x + hx, z - hz, z + hz, 'building', h);
+      }
+      return deepest;
+    };
+    const dz0 = place('z0', ix0, ix1, iz0);
+    const dz1 = place('z1', ix0, ix1, iz1);
+    const inset = Math.max(dz0, dz1) + 0.4;
+    place('x0', iz0 + inset, iz1 - inset, ix0);
+    place('x1', iz0 + inset, iz1 - inset, ix1);
+    // courtyard
+    const cx = (ix0 + ix1) / 2, cz = (iz0 + iz1) / 2;
+    for (let k = 0; k < 4; k++) this.tree(cx + rand(rng, -9, 9), cz + rand(rng, -9, 9), 0.16, false);
+    for (let k = 0; k < 5; k++) this.smallTree(cx + rand(rng, -12, 12), cz + rand(rng, -12, 12), 0.16);
   }
 
   buildSuburb(b, ix0, ix1, iz0, iz1) {
@@ -1094,6 +1237,27 @@ export class City {
       this.extraGeo.push(tank);
       this.addCircle(tx, tz, 4.1, 'tank');
     }
+    // chain-link fence round the yard (gate gaps in the middle of each side), pallets and bins
+    if (this.has('fence')) {
+      const seg = this.kit.fence.size.x * 0.98;
+      const run = (ax, az, bx, bz, rot) => {
+        const len = Math.hypot(bx - ax, bz - az), n = Math.floor(len / seg);
+        for (let k = 0; k < n; k++) {
+          const t = (k + 0.5) / n;
+          if (Math.abs(t - 0.5) < 0.12) continue; // gate
+          this.kprop('fence', ax + (bx - ax) * t, 0.16, az + (bz - az) * t, rot, 1, null, len / n / this.kit.fence.size.x, 1, 1);
+        }
+      };
+      run(ix0 + 0.4, iz1 - 0.4, ix1 - 0.4, iz1 - 0.4, 0);
+      run(ix1 - 0.4, iz0 + 0.4, ix1 - 0.4, iz1 - 0.4, Math.PI / 2);
+      for (let k = 0; k < 6; k++) {
+        const name = this.kpick(['boxes', 'boxes', 'barrier', 'plasticBarrier', 'trashBags', 'dumpster']);
+        const x = rand(rng, ix0 + 4, ix1 - 4), z = rand(rng, iz1 - 14, iz1 - 3);
+        if (this.pointBlocked(x, z, 1.5)) continue;
+        this.kprop(name, x, 0.16, z, rng() * 6, rand(rng, 0.9, 1.15));
+        if (name === 'dumpster') this.addCircle(x, z, 1.1, 'dumpster');
+      }
+    }
     void roof;
   }
 
@@ -1109,6 +1273,7 @@ export class City {
     // central feature: fountain or pond
     const roof = this.bucket(b.chunk, 'concrete');
     const water = this.bucket(b.chunk, 'water');
+    let pond = null;
     if (rng() < 0.5 || this.sandy) {
       // fountain
       const r = 4;
@@ -1133,18 +1298,58 @@ export class City {
         water.tri([ox, 0.19, oz], [ox + Math.cos(a1) * r, 0.19, oz + Math.sin(a1) * r], [ox + Math.cos(a0) * r, 0.19, oz + Math.sin(a0) * r], [0, 0], [1, 0], [0, 1], col('#ffffff'));
       }
       this.addCircle(ox, oz, r, 'pond');
+      pond = { x: ox, z: oz, r: r + 2.5 };
     }
     // trees scattered away from paths
     for (let k = 0; k < 16; k++) {
       const x = rand(rng, ix0 + 2, ix1 - 2), z = rand(rng, iz0 + 2, iz1 - 2);
       if (Math.abs(x - cx) < 5 || Math.abs(z - cz) < 5) continue;
       if (Math.hypot(x - cx, z - cz) < 9) continue;
+      if (pond && Math.hypot(x - pond.x, z - pond.z) < pond.r + 2) continue;
       if (rng() < 0.75) this.tree(x, z); else this.smallTree(x, z, 0.16);
     }
     for (let k = 0; k < 4; k++) {
       const a = (k / 4) * Math.PI * 2 + Math.PI / 4;
       this.breakableProp('bench', cx + Math.cos(a) * 8, cz + Math.sin(a) * 8, -a + Math.PI / 2, 0.5);
     }
+    this.parkPlanting(ix0, ix1, iz0, iz1, cx, cz, pond);
+  }
+
+  // Flower beds, ferns, grass and rocks in a park, and a clipped hedge around it (gaps at the paths).
+  parkPlanting(ix0, ix1, iz0, iz1, cx, cz, pond = null) {
+    const rng = this.rng;
+    if (!this.has('flowers0')) return;
+    const snow = this.map.theme === 'snow';
+    for (let k = 0; k < 34; k++) {
+      const x = rand(rng, ix0 + 2, ix1 - 2), z = rand(rng, iz0 + 2, iz1 - 2);
+      if (Math.abs(x - cx) < 4.5 || Math.abs(z - cz) < 4.5 || Math.hypot(x - cx, z - cz) < 9) continue;
+      if (pond && Math.hypot(x - pond.x, z - pond.z) < pond.r) continue;
+      const r = rng();
+      const name = snow ? (r < 0.5 ? this.kpick(['rock0', 'rock1']) : this.kpick(['bushSnow'])) : this.sandy
+        ? (r < 0.6 ? this.kpick(['rock0', 'rock1', 'rocks1']) : this.kpick(['grass', 'plant']))
+        : r < 0.3 ? this.kpick(['flowers0', 'flowers1']) : r < 0.52 ? this.kpick(['grass', 'grassTuft']) : r < 0.66 ? this.kpick(['fern'])
+          : r < 0.78 ? this.kpick(['clover', 'plant']) : r < 0.9 ? this.kpick(['bushFlowers', 'bush']) : this.kpick(['rock0', 'rock1', 'rocks1']);
+      if (!name) continue;
+      // flowers grow in little clusters
+      const n = /flowers|grass|clover/.test(name) ? randInt(rng, 2, 4) : 1;
+      for (let m = 0; m < n; m++) this.kprop(name, x + rand(rng, -1.2, 1.2), 0.16, z + rand(rng, -1.2, 1.2), rng() * 6, rand(rng, 0.75, 1.2));
+    }
+    if (!this.has('hedge') || this.sandy) return;
+    const step = 2.0, inset = 1.0;
+    const edge = (ax, az, bx, bz, rot) => {
+      const len = Math.hypot(bx - ax, bz - az), n = Math.floor(len / step);
+      for (let k = 0; k <= n; k++) {
+        const x = ax + (bx - ax) * (k / n), z = az + (bz - az) * (k / n);
+        if (Math.abs(x - cx) < 5 && Math.abs(z - cz) < 5) continue;
+        if (Math.abs(x - cx) < 4.5 || Math.abs(z - cz) < 4.5) continue; // entrances at the paths
+        this.kprop(snow ? 'bushSnow' : 'hedge', x, 0.16, z, rot, 1);
+        this.addCircle(x, z, 0.75, 'hedge');
+      }
+    };
+    edge(ix0 + inset, iz0 + inset, ix1 - inset, iz0 + inset, 0);
+    edge(ix0 + inset, iz1 - inset, ix1 - inset, iz1 - inset, 0);
+    edge(ix0 + inset, iz0 + inset + step, ix0 + inset, iz1 - inset - step, Math.PI / 2);
+    edge(ix1 - inset, iz0 + inset + step, ix1 - inset, iz1 - inset - step, Math.PI / 2);
   }
 
   buildPlaza(b, ix0, ix1, iz0, iz1) {
@@ -1500,6 +1705,8 @@ export class City {
     // instanced props, split into spatial chunks so off-screen ones are culled
     this.instanced = {};
     this.propRef = {};
+    this.lods = [];
+    this.lodRange = { low: 120, medium: 165, high: 230 }[this.quality] || 165;
     const CH = CELL * 2;
     for (const [name, p] of Object.entries(this.props)) {
       if (!p.list.length) continue;
@@ -1514,21 +1721,46 @@ export class City {
         g.push(k);
       });
       for (const [key, idxs] of groups) {
-        const im = new THREE.InstancedMesh(p.geo, p.mat, idxs.length);
-        idxs.forEach((k, li) => {
-          const it = p.list[k];
-          im.setMatrixAt(li, it.m);
-          if (p.colors) im.setColorAt(li, tmpColor.set(it.color || '#ffffff'));
-          refs[k] = { im, li };
-        });
-        im.instanceMatrix.needsUpdate = true;
-        if (im.instanceColor) im.instanceColor.needsUpdate = true;
-        im.castShadow = p.cast;
-        im.receiveShadow = name !== 'pool' && name !== 'neon';
-        im.computeBoundingSphere();
-        this.group.add(im);
+        const make = (geo, cast) => {
+          const im = new THREE.InstancedMesh(geo, p.mat, idxs.length);
+          idxs.forEach((k, li) => {
+            const it = p.list[k];
+            im.setMatrixAt(li, it.m);
+            if (p.colors) im.setColorAt(li, tmpColor.set(it.color || '#ffffff'));
+            (refs[k] ||= []).push({ im, li });
+          });
+          im.instanceMatrix.needsUpdate = true;
+          if (im.instanceColor) im.instanceColor.needsUpdate = true;
+          im.castShadow = cast;
+          im.receiveShadow = name !== 'pool' && name !== 'neon';
+          im.computeBoundingSphere();
+          this.group.add(im);
+          return im;
+        };
+        const im = make(p.geo, p.cast);
+        im.name = name;
+        if (p.proxy) { const sh = make(p.geoLo, true); sh.layers.set(SHADOW_LAYER); sh.name = name + '__shadow'; }
         this.instanced[name + '|' + key] = im;
+        // distance LOD: detailed models near the player, simplified (or none) far away
+        if (p.geoLo || p.near) {
+          const [ci, cj] = key.split(',').map(Number);
+          this.lods.push({ x: (ci + 0.5) * CH, z: (cj + 0.5) * CH, hi: im, lo: p.geoLo ? make(p.geoLo, false) : null, near: p.near || 1 });
+        }
       }
+    }
+    this.updateLod(0, 0, true);
+  }
+
+  // Swap detailed / simplified instances per chunk around (x, z). Cheap: one distance per chunk.
+  updateLod(x, z, force = false) {
+    if (!force && Math.hypot(x - (this.lodAt?.x ?? 1e9), z - (this.lodAt?.z ?? 1e9)) < 8) return;
+    this.lodAt = { x, z };
+    const R = this.lodRange;
+    for (const c of this.lods) {
+      const d = Math.hypot(c.x - x, c.z - z);
+      const near = d < R * c.near;
+      c.hi.visible = near;
+      if (c.lo) c.lo.visible = !near;
     }
   }
 
@@ -1540,14 +1772,15 @@ export class City {
     const zero = new THREE.Matrix4().makeScale(0, 0, 0);
     const pieces = [];
     for (const [name, idx] of c.breakable.parts) {
-      const ref = this.propRef[name]?.[idx];
-      if (!ref) continue;
-      const { im, li } = ref;
+      const refs = this.propRef[name]?.[idx];
+      if (!refs) continue;
       const m = new THREE.Matrix4();
-      im.getMatrixAt(li, m);
-      (c.saved ||= []).push([im, li, m.clone()]);
-      im.setMatrixAt(li, zero);
-      im.instanceMatrix.needsUpdate = true;
+      for (const { im, li } of refs) {
+        im.getMatrixAt(li, m);
+        (c.saved ||= []).push([im, li, m.clone()]);
+        im.setMatrixAt(li, zero);
+        im.instanceMatrix.needsUpdate = true;
+      }
       if (name === 'pool') continue;
       const mesh = new THREE.Mesh(this.props[name].geo, this.props[name].mat);
       m.decompose(mesh.position, mesh.quaternion, mesh.scale);
@@ -1618,7 +1851,7 @@ export class City {
     for (const m of Object.values(this.materials)) m.dispose();
     for (const m of Object.values(this.facadeMats)) m.dispose();
     for (const t of Object.values(this.tex)) t.dispose();
-    for (const f of Object.values(this.facadeTex)) { f.map.dispose(); f.emissive.dispose(); }
+    for (const f of Object.values(this.facadeTex)) { f.map.dispose(); f.emissive.dispose(); f.orm.dispose(); f.normal.dispose(); }
     for (const p of Object.values(this.props)) p.mat.dispose?.();
   }
 }

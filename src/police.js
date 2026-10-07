@@ -268,9 +268,13 @@ export class Police {
     if (g.state === 'playing' && !this.suppress) {
       this.spawnTimer -= dt;
       const active = this.cops.filter((c) => c.alive).length;
-      if (this.spawnTimer <= 0 && active < W.maxCops) {
+      // story difficulty: more units, sooner, as the story goes on
+      const sd = g.storyDiff;
+      const maxCops = sd === undefined ? W.maxCops : Math.max(1, Math.round(W.maxCops * (0.65 + sd * 0.75)));
+      const every = sd === undefined ? W.spawnEvery : W.spawnEvery * (1.3 - sd * 0.55);
+      if (this.spawnTimer <= 0 && active < maxCops) {
         this.spawnChaser();
-        this.spawnTimer = W.spawnEvery * (0.7 + Math.random() * 0.6);
+        this.spawnTimer = every * (0.7 + Math.random() * 0.6);
       }
       if (W.roadblocks) {
         this.roadblockTimer -= dt;
@@ -342,7 +346,7 @@ export class Police {
       const x = cop.x + c * side * (cop.W / 2 + 0.7) + s * (i > 1 ? -1.5 : 0.4);
       const z = cop.z - s * side * (cop.W / 2 + 0.7) + c * (i > 1 ? -1.5 : 0.4);
       const o = g.people.make(x, z, {
-        mode: 'copFoot', copFoot: true, armed: true, rigKind: 'swat', hp: cop.copType === 'swat' ? 60 : 40,
+        mode: 'copFoot', copFoot: true, armed: true, rigKind: 'swat', hp: (cop.copType === 'swat' ? 60 : 40) * (g.storyDiff === undefined ? 1 : 0.8 + g.storyDiff * 1.0),
         heading: cop.heading, shootCool: 0.8 + Math.random(), walk: 0, height: 1.78 + Math.random() * 0.1,
       });
       cop.officers.push(o);

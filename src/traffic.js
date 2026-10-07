@@ -146,7 +146,7 @@ export class Traffic {
   }
 
   onHit(v, impact) {
-    if (impact > 5) v.ai.crashed = 3 + Math.random() * 3;
+    if (impact > 5 && v.ai) v.ai.crashed = 3 + Math.random() * 3; // river boats have no road AI
   }
 
   update(dt) {

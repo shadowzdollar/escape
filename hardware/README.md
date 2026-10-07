@@ -67,12 +67,19 @@ or without the cable.
 
 | HC-05 pin | Arduino |
 |---|---|
-| VCC | 5V |
+| VCC | **D9** (the sketch drives D9 HIGH to power the module) |
 | GND | GND |
 | TXD | **D10** |
 | RXD | **D11** through a voltage divider: D11 → 1 kΩ → RXD, and RXD → 2 kΩ → GND |
 
 The HC-05 RX pin is 3.3 V logic, so the divider protects it. STATE and EN stay unconnected.
+
+**About powering from D9:** an Uno pin can safely give about 20 mA (40 mA is the absolute limit).
+An HC-05 draws roughly 30–40 mA while it searches for a connection, and about 8 mA once connected.
+It works for most modules, but the pin runs near its limit while pairing. If the module keeps
+resetting (the LED stops and restarts), or the link won't connect, move VCC back to the **5V** pin.
+Nothing else changes, because D9 just stays HIGH. You can power-cycle the module from the Serial
+Monitor by sending `r`.
 D10/D11 are used (not D0/D1), so you can still upload sketches with the HC-05 plugged in.
 
 **Power without the cable:** use a USB power bank in the Uno's USB socket, or a 9 V battery

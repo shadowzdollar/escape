@@ -50,7 +50,7 @@
     <div class="panel modes-panel">
       <div class="panel-head"><button class="btn icon" data-action="back">←</button><h2>CHOOSE MODE</h2></div>
       <div class="mode-grid">
-        <div class="mode-card story" data-action="story"><h3>STORY</h3><p>Five missions from the bank heist to the pyramids. Each one unlocks the next.</p><small id="story-progress"></small></div>
+        <div class="mode-card story" data-action="story"><h3>STORY: THE LONG ROAD</h3><p>12 sequences, 120 long story missions and 240 side contracts. From the bank heist to the Architect.</p><small id="story-progress"></small></div>
         <div class="mode-card endless" data-action="endless"><h3>ENDLESS CHASE</h3><p>Survive as long as you can. The heat never stops rising.</p><small>7 wanted levels</small></div>
       </div>
     </div>
@@ -58,9 +58,49 @@
 
   <!-- story missions -->
   <div id="story" class="screen">
-    <div class="panel story-panel">
-      <div class="panel-head"><button class="btn icon" data-action="modes">←</button><h2>STORY</h2></div>
-      <div class="mission-list" id="mission-list"></div>
+    <div class="panel story-panel story-v2">
+      <div class="panel-head"><button class="btn icon" data-action="modes">←</button><h2>THE LONG ROAD</h2><span class="trophy-count" id="story-rank"></span></div>
+      <div class="story-top">
+        <div class="story-prog"><i id="story-bar"></i></div><span id="story-pct"></span>
+        <button class="btn primary" data-action="story-continue" id="story-continue">CONTINUE</button>
+      </div>
+      <div class="story-body">
+        <div class="seq-list" id="seq-list"></div>
+        <div class="seq-detail">
+          <div id="seq-head" class="seq-head"></div>
+          <div class="seg story-tabs" id="story-tabs"><button data-tab="story">STORY MISSIONS</button><button data-tab="contracts">CONTRACTS</button></div>
+          <div class="mission-list" id="mission-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- mission briefing -->
+  <div id="brief" class="screen dim">
+    <div class="panel brief-panel">
+      <div class="brief-seq" id="brief-seq"></div>
+      <h1 id="brief-title"></h1>
+      <div class="brief-meta" id="brief-meta"></div>
+      <p class="brief-text" id="brief-text"></p>
+      <div class="brief-obj" id="brief-obj"></div>
+      <div class="brief-btns">
+        <button class="btn big primary" data-action="brief-start">START MISSION</button>
+        <button class="btn" data-action="brief-checkpoint" id="brief-cp">CONTINUE FROM CHECKPOINT</button>
+        <button class="btn" data-action="brief-back">BACK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- story mission result -->
+  <div id="sresult" class="screen dim">
+    <div class="panel center-panel over-panel sresult-panel">
+      <div class="brief-seq" id="sr-seq"></div>
+      <h1 id="sr-title" class="win-title">MISSION COMPLETE</h1>
+      <div class="go-sub" id="sr-name"></div>
+      <div class="sr-reason" id="sr-reason"></div>
+      <div class="go-stats" id="sr-stats"></div>
+      <div class="go-best show" id="sr-unlock"></div>
+      <div class="sr-btns" id="sr-btns"></div>
     </div>
   </div>
 
@@ -107,6 +147,7 @@
       <div class="setting"><span>Sound</span><div class="seg" data-setting="sound"><button data-v="true">ON</button><button data-v="false">OFF</button></div></div>
       <div class="setting"><span>Music</span><div class="seg" data-setting="music"><button data-v="true">ON</button><button data-v="false">OFF</button></div></div>
       <div class="setting"><span>Intro cinematic</span><div class="seg" data-setting="intro"><button data-v="true">ON</button><button data-v="false">OFF</button></div></div>
+      <div class="setting"><span>Story voices</span><div class="seg" data-setting="voice"><button data-v="true">ON</button><button data-v="false">OFF</button></div></div>
       <div class="setting"><span>FPS counter</span><div class="seg" data-setting="fps"><button data-v="true">ON</button><button data-v="false">OFF</button></div></div>
       <div class="setting"><span>Arduino joystick</span><button class="btn small-btn" data-action="joy-connect">CONNECT</button></div>
       <div class="setting joy-line" id="joy-status">Plug in the controller and press CONNECT (Chrome / Edge).</div>
@@ -136,7 +177,9 @@
     <div class="hud-br">
       <div class="speedo"><b id="h-speed">0</b><span>KM/H</span></div>
     </div>
-    <div class="objective" id="h-obj"><div class="obj-top"><span id="h-obj-step"></span><b id="h-obj-clock"></b></div><div id="h-obj-label"></div><div id="h-obj-prog"></div></div>
+    <div class="objective" id="h-obj"><div class="obj-top"><span id="h-obj-step"></span><b id="h-obj-clock"></b></div><div id="h-obj-label"></div><div id="h-obj-prog"></div><div id="h-obj-threat"></div></div>
+    <div class="subtitle" id="h-sub"><b id="h-sub-name"></b><span id="h-sub-text"></span></div>
+    <div class="title-card" id="h-title"><small id="h-title-seq"></small><h2 id="h-title-name"></h2></div>
     <div class="edge-arrow" id="h-arrow">➤</div>
     <div class="weapon" id="h-weapon"></div>
     <div class="hint" id="h-hint"></div>

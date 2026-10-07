@@ -1,0 +1,30 @@
+<!doctype html><html><body style="margin:0;background:#9ab"><script type="module">
+// Dev viewer for public/models/city/kit.glb: every model in a grid with its size.
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+const l = new GLTFLoader(); const d = new DRACOLoader(); d.setDecoderPath('/draco/'); l.setDRACOLoader(d);
+const g = await l.loadAsync('/models/city/kit.glb');
+const filter = new URLSearchParams(location.search).get('only');
+const roots = g.scene.children.filter((c) => !filter || filter.split(',').some((f) => c.name.startsWith(f)));
+const info = {};
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(1600, 900); document.body.appendChild(r.domElement);
+const s = new THREE.Scene(); s.background = new THREE.Color(0x9ab0c0);
+s.add(new THREE.HemisphereLight(0xffffff, 0x556644, 2)); const sun = new THREE.DirectionalLight(0xffffff, 2.5); sun.position.set(5, 10, 7); s.add(sun);
+const cols = Math.ceil(Math.sqrt(roots.length * 1.8));
+let maxH = 0;
+roots.forEach((o, i) => {
+  const b = new THREE.Box3().setFromObject(o), sz = b.getSize(new THREE.Vector3());
+  const mats = []; o.traverse((m) => { if (m.isMesh) mats.push(`${m.material.name}${m.material.map ? '(tex' + (m.material.transparent ? ',blend' : '') + (m.material.alphaTest ? ',test' : '') + ')' : ''}${m.geometry.attributes.normal ? '' : '[nonormal]'}`); });
+  info[o.name] = { size: sz.toArray().map((v) => +v.toFixed(2)), min: b.min.toArray().map((v) => +v.toFixed(2)), mats: mats.join(' ') };
+  const k = 1 / Math.max(sz.x, sz.y, sz.z);
+  o.scale.setScalar(k * 0.9); o.position.set((i % cols) * 1.1 - b.getCenter(new THREE.Vector3()).x * k * 0.9, -b.min.y * k * 0.9, Math.floor(i / cols) * 1.3 - b.getCenter(new THREE.Vector3()).z * k * 0.9);
+  o.traverse((m) => { if (m.isMesh && !m.geometry.attributes.normal) m.material.flatShading = true; });
+});
+for (const c of [...g.scene.children]) if (!roots.includes(c)) g.scene.remove(c);
+s.add(g.scene);
+const rows = Math.ceil(roots.length / cols);
+const cam = new THREE.PerspectiveCamera(35, 16 / 9, 0.1, 100); cam.position.set(cols * 0.55, rows * 1.2, rows * 1.3 + 3); cam.lookAt(cols * 0.55, 0, rows * 0.55);
+const loop = () => { r.render(s, cam); requestAnimationFrame(loop); }; loop();
+window.__info = info; window.__names = roots.map((o) => o.name); window.__done = true;
+</script></body></html>

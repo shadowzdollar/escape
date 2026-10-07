@@ -251,8 +251,27 @@ export class GameAudio {
     o.start(t); vib.start(t); o.stop(t + 0.8); vib.stop(t + 0.8);
   }
   // Police shouting: real speech when the browser has voices, radio squelch otherwise.
+  // Story dialogue through browser speech (one line at a time; '' stops talking).
+  say(text, voice = {}) {
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+    synth.cancel();
+    if (!text || !this.ctx || this.muted) { this.sayUntil = 0; return; }
+    const voices = synth.getVoices?.() || [];
+    if (!voices.length) return;
+    const en = voices.filter((v) => /^en/i.test(v.lang));
+    const pickV = voice.female
+      ? en.find((v) => /female|zira|samantha|victoria|karen|susan|hazel|libby/i.test(v.name))
+      : en.find((v) => /\bmale|david|daniel|alex|fred|george|ryan/i.test(v.name));
+    const u = new SpeechSynthesisUtterance(text);
+    u.voice = pickV || en[0] || voices[0];
+    u.pitch = voice.pitch ?? 1; u.rate = voice.rate ?? 1; u.volume = 0.95;
+    synth.speak(u);
+    this.sayUntil = this.ctx.currentTime + 1 + text.length * 0.065;
+  }
   shout(line, dist = 0) {
     if (!this.ctx || this.muted || (this.shoutT || 0) > this.ctx.currentTime) return;
+    if ((this.sayUntil || 0) > this.ctx.currentTime) return; // don't talk over the story
     this.shoutT = this.ctx.currentTime + 4;
     const synth = window.speechSynthesis;
     const voices = synth?.getVoices?.() || [];
