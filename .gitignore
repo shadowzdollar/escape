@@ -31,7 +31,7 @@ Thumbs.db
 *.log
 *.deb
 *.blend
-*.glb
+/assets.glb-placeholder
 *.mp4
 *.avif
 *.mp3
