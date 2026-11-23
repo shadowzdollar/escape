@@ -14,6 +14,7 @@ __pycache__/
 .ipynb_checkpoints/
 build/
 dist/
+fender-bender-crazygames.zip
 escape-overdrive-crazygames.zip
 *.zip
 out/

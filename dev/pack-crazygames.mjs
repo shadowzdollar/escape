@@ -1,4 +1,4 @@
-// Package the production build in dist/ into escape-overdrive-crazygames.zip
+// Package the production build in dist/ into fender-bender-crazygames.zip
 // and validate CrazyGames technical requirements (relative paths, file count, size).
 import fs from 'node:fs';
 import path from 'node:path';
@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 
 const root = process.cwd();
 const distDir = path.join(root, 'dist');
-const zipPath = path.join(root, 'escape-overdrive-crazygames.zip');
+const zipPath = path.join(root, 'fender-bender-crazygames.zip');
 
 if (!fs.existsSync(path.join(distDir, 'index.html'))) {
   console.error('Error: dist/index.html not found. Run `npm run build` first.');

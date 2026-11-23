@@ -1,7 +1,8 @@
 // Persistent progress in CrazyGames SDK data + localStorage fallback.
 import { CARS } from './config.js';
 
-const KEY = 'escape-overdrive-save-v1';
+const KEY = 'fender-bender-save-v1';
+const LEGACY_KEY = 'escape-overdrive-save-v1';
 
 const DEFAULTS = () => ({
   coins: 0,
@@ -42,12 +43,12 @@ function normalizeSave(parsed) {
 export function loadSave() {
   let parsed = null;
   try {
-    const cgRaw = window.CrazyGames?.SDK?.data?.getItem?.(KEY);
+    const cgRaw = window.CrazyGames?.SDK?.data?.getItem?.(KEY) || window.CrazyGames?.SDK?.data?.getItem?.(LEGACY_KEY);
     if (cgRaw) parsed = parseRaw(cgRaw);
   } catch { /* SDK not initialized yet */ }
   if (!parsed) {
     try {
-      parsed = parseRaw(localStorage.getItem(KEY));
+      parsed = parseRaw(localStorage.getItem(KEY)) || parseRaw(localStorage.getItem(LEGACY_KEY));
     } catch { /* storage unavailable */ }
   }
   return normalizeSave(parsed);

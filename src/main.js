@@ -1,4 +1,4 @@
-// Escape: Overdrive. Game orchestration: rendering, state machine, rules, camera.
+// Fender Bender. Game orchestration: rendering, state machine, rules, camera.
 import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';

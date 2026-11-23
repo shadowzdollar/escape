@@ -1,6 +1,6 @@
-# Escape: Overdrive
+# Fender Bender
 
-A browser police-chase game inspired by Escape Road, built with Three.js. Every car, building, texture and sound is generated in code; there are no asset files.
+A browser police-chase and vehicular action game built with Three.js. Every car, building, texture and sound is generated in code; there are no asset files.
 
 ## Run
 

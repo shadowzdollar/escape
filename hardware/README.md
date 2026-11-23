@@ -1,4 +1,4 @@
-# BENAX Arduino Joystick → Escape: Overdrive
+# BENAX Arduino Joystick → Fender Bender
 
 Your controller is an **Arduino Uno** with **two KY-023 thumbstick modules** in a 3D-printed case.
 The Uno streams both sticks over USB serial **and** Bluetooth (HC-05), and the game reads them in the browser

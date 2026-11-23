@@ -67,7 +67,7 @@ try {
     document.getElementById('hud').classList.remove('show');
     const cover = document.createElement('div');
     cover.id = 'cg-cover-logo';
-    cover.innerHTML = `<div class="logo" style="position:fixed;left:5vw;bottom:6vh;z-index:99;transform:scale(1.2);transform-origin:left bottom;pointer-events:none;"><span>ESCAPE</span><em>OVERDRIVE</em></div>`;
+    cover.innerHTML = `<div class="logo" style="position:fixed;left:5vw;bottom:6vh;z-index:99;transform:scale(1.2);transform-origin:left bottom;pointer-events:none;"><span>FENDER</span><em>BENDER</em></div>`;
     document.body.appendChild(cover);
   });
   await page.waitForTimeout(1000);
