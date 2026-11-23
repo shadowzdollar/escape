@@ -955,7 +955,7 @@ export class City {
     for (let x = ix0 + 4; x < ix1 - 4; x += 6) hquad(m, x, cz - 0.3, x + 3, cz + 0.3, 0.19, col('#f4f4f4'), 4);
     hquad(m, ix0 + 3, cz - 6.6, ix1 - 3, cz - 6.2, 0.19, col('#f2c14e'), 4);
     hquad(m, ix0 + 3, cz + 6.2, ix1 - 3, cz + 6.6, 0.19, col('#f2c14e'), 4);
-    // the escape plane: a small jet parked at the east end, facing west
+    // the getaway plane: a small jet parked at the east end, facing west
     const px = ix1 - 14, pz = cz;
     const fus = new THREE.CylinderGeometry(1.3, 1.1, 16, 14); fus.rotateZ(Math.PI / 2); fus.translate(px, 2.4, pz);
     const nose = new THREE.SphereGeometry(1.3, 12, 8); nose.scale(2.2, 1, 1); nose.translate(px - 8, 2.4, pz);

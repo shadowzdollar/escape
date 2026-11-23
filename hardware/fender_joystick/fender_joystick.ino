@@ -1,5 +1,5 @@
 /*
-  Escape: Overdrive - dual joystick controller, USB + Bluetooth
+  Fender Bender - dual joystick controller, USB + Bluetooth
   Board: Arduino Uno + 2x KY-023 thumbsticks + HC-05 (or HC-06) Bluetooth module
 
   The same packet goes out on both links, so the controller works with the USB cable
@@ -13,7 +13,7 @@
       HC-05 RXD <- D11 through a 1k / 2k voltage divider (3.3 V logic)
 
   Serial commands (USB Serial Monitor at 115200, or over Bluetooth):
-      h -> "HELLO,ESCAPE-JOY,2"    t -> test view with live bars    s -> back to streaming
+      h -> "HELLO,FENDER-JOY,2"    t -> test view with live bars    s -> back to streaming
       r -> power-cycle the HC-05 (D9 off for half a second)
 */
 
@@ -81,7 +81,7 @@ void updateButton(Button &b, unsigned long now) {
 
 void handleCommand(char c, Stream &reply) {
   if (c == 'h' || c == 'H') {
-    reply.println(F("HELLO,ESCAPE-JOY,2"));
+    reply.println(F("HELLO,FENDER-JOY,2"));
   }
   else if (c == 't' || c == 'T') {
     testMode = true;
@@ -123,8 +123,8 @@ void setup() {
     digitalWrite(LED_BUILTIN, HIGH); delay(80);
     digitalWrite(LED_BUILTIN, LOW); delay(80);
   }
-  Serial.println(F("HELLO,ESCAPE-JOY,2"));
-  BTSerial.println(F("HELLO,ESCAPE-JOY,2"));
+  Serial.println(F("HELLO,FENDER-JOY,2"));
+  BTSerial.println(F("HELLO,FENDER-JOY,2"));
 }
 
 void loop() {

@@ -49,7 +49,7 @@ npm run build      # production build in dist/
 - **Boats (Garage → BOATS):** speedboat (free), PATROL BOAT with a bow machine gun, and GUNBOAT with twin rocket pods and a deck gun. The boat you pick waits at the nearest river bank (cyan ▲ on the minimap).
 - **Movement:** faster running (jog 7.5 m/s, sprint 11 m/s), a front-crawl swim with strokes and splashes, and animated car doors that open when you get in, drag the driver out, or step out.
 - **Water:** steal a docked speedboat, get chased by police boats, and see feluccas on the Nile.
-- **Giza map:** sandstone city with domes and minarets, three stepped pyramids, the Sphinx, dunes, and an airstrip with the escape plane.
+- **Giza map:** sandstone city with domes and minarets, three stepped pyramids, the Sphinx, dunes, and an airstrip with the getaway plane.
 - **24 cars:** 12 new real-world-inspired cars (fictional names), modern and classic, with chrome bumpers, tail fins and two-tone paint.
 - **Realism pass:** asphalt grain and wet puddles at night, parked cars, working traffic lights, color grading, ambient occlusion (High), and sky-lit reflections.
 - **Human sounds:** footsteps, breathing, screams, police shouts (browser speech), radio chatter, crowd murmur and horns.

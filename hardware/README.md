@@ -17,7 +17,7 @@ Each KY-023 module has 5 pins: `GND`, `+5V`, `VRx`, `VRy`, `SW`.
 | SW   | **D2** | **D3** |
 
 Both modules share the Uno's 5V and GND pins. If your wires already go to different pins,
-don't re-wire: just change the pin constants at the top of `escape_joystick/escape_joystick.ino`.
+don't re-wire: just change the pin constants at the top of `fender_joystick/fender_joystick.ino`.
 
 ```
             ┌──────────── Arduino UNO ────────────┐
@@ -31,7 +31,7 @@ don't re-wire: just change the pin constants at the top of `escape_joystick/esca
 
 ## 2. Upload the sketch
 
-1. Open **Arduino IDE** → *File → Open* → `hardware/escape_joystick/escape_joystick.ino`
+1. Open **Arduino IDE** → *File → Open* → `hardware/fender_joystick/fender_joystick.ino`
 2. *Tools → Board* → **Arduino Uno**, *Tools → Port* → your controller's port
    (`/dev/ttyUSB0` / `/dev/ttyACM0` on Linux, `COMx` on Windows)
 3. Click **Upload**. The onboard LED blinks 3 times when it's ready.
@@ -154,7 +154,7 @@ J,<leftX>,<leftY>,<leftButton>,<rightX>,<rightY>,<rightButton>
 J,512,518,0,505,20,1        ← example: right stick pushed up + clicked
 ```
 
-Axes are 0–1023 and buttons are 0/1. Send `h` to get `HELLO,ESCAPE-JOY,2` back.
+Axes are 0–1023 and buttons are 0/1. Send `h` to get `HELLO,FENDER-JOY,2` back.
 USB runs at 115200 baud and about 25 lines per second (60 with a 38400-baud HC-05). Bluetooth sends the same lines.
 The game-side driver is in `src/joystick.js`.
 

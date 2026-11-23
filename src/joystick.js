@@ -1,4 +1,4 @@
-// Arduino dual-thumbstick controller (see hardware/escape_joystick). Three links:
+// Arduino dual-thumbstick controller (see hardware/fender_joystick). Three links:
 //  - USB cable, via Web Serial
 //  - Bluetooth HC-05, via Web Serial (Chrome lists paired Serial Port Profile devices)
 //  - Bluetooth HC-05 bound to /dev/rfcomm0, via the dev-server bridge (hardware/joy-bridge.mjs)

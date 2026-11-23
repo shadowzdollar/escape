@@ -30,9 +30,9 @@ export const MISSIONS = [
     wantedCap: 6, startHeat: 160, timeLimit: 330, par: 150, reward: 2400, start: { carGuns: 45, carRockets: 8 },
   },
   {
-    id: 'm5', name: "PHARAOH'S ESCAPE", map: 'giza', difficulty: 5,
-    brief: 'Attack helicopters own the sky over Giza. Reach the escape plane at the pyramids airstrip.',
-    objectives: [{ type: 'reach', label: 'REACH THE ESCAPE PLANE', target: 'airstrip', min: 450, max: 750 }],
+    id: 'm5', name: "PHARAOH'S GETAWAY", map: 'giza', difficulty: 5,
+    brief: 'Attack helicopters own the sky over Giza. Reach the getaway plane at the pyramids airstrip.',
+    objectives: [{ type: 'reach', label: 'REACH THE GETAWAY PLANE', target: 'airstrip', min: 450, max: 750 }],
     wantedCap: 7, startHeat: 375, timeLimit: 300, par: 140, reward: 5000, unlock: 'veyra', start: { rpg: 8, carRockets: 6 },
   },
 ];

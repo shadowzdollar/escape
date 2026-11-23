@@ -47,7 +47,7 @@ export function joyBridge() {
   };
 
   return {
-    name: 'escape-joy-bridge',
+    name: 'fender-joy-bridge',
     apply: 'serve',
     configureServer(server) {
       server.middlewares.use('/joy-bridge', async (req, res) => {
