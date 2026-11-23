@@ -209,6 +209,17 @@ body.is-touch .controls-hint { display: none; }
   body.is-touch .hud-br { top: 160px; }
 }
 
+@media (max-height: 520px) {
+  .touch button { width: 56px; height: 56px; font-size: 20px; }
+  .touch button.small { width: 44px; height: 44px; font-size: 11px; }
+  .touch button.gas { width: 68px; height: 68px; font-size: 24px; }
+  .touch .tl { left: 14px; bottom: 14px; gap: 8px; }
+  .touch .tr { right: 14px; bottom: 14px; gap: 6px; }
+  .touch .tr-top, .touch .tr-bot { gap: 6px; }
+  body.is-touch .hud-bl { bottom: 80px; }
+  body.is-touch .hud-br { top: 70px; }
+}
+
 /* ---------- Arduino controller ---------- */
 .focus { outline: 3px solid var(--accent) !important; outline-offset: 3px; box-shadow: 0 0 22px rgba(255, 204, 0, .55) !important; }
 .joy-badge { margin-top: 12px; align-self: flex-start; font: 700 14px var(--text); letter-spacing: 1px; padding: 6px 12px; border-radius: 20px;

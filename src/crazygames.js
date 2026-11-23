@@ -26,7 +26,12 @@ export class CrazyGamesSDK {
       const sdk = this.sdk;
       if (!sdk || typeof sdk.init !== 'function') return false;
       try {
-        await sdk.init();
+        const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve('timeout'), 4000));
+        const res = await Promise.race([sdk.init(), timeoutPromise]);
+        if (res === 'timeout') {
+          console.warn('CrazyGames SDK init timed out; proceeding in offline mode');
+          return false;
+        }
         this.ready = true;
         // Apply initial platform settings (e.g. CrazyGames mute toggle)
         const settings = sdk.game?.settings;
@@ -105,9 +110,11 @@ export class CrazyGamesSDK {
     this.adActive = true;
     this.game.setAdActive(true);
     let finished = false;
+    const safetyTimer = setTimeout(() => finish(), 45000);
     const finish = () => {
       if (finished) return;
       finished = true;
+      clearTimeout(safetyTimer);
       this.adActive = false;
       this.lastAdTime = performance.now();
       this.game.setAdActive(false);
@@ -138,7 +145,15 @@ export class CrazyGamesSDK {
     this.adActive = true;
     this.game.setAdActive(true);
     let settled = false;
+    const safetyTimer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        restore();
+        onError?.('Ad timeout');
+      }
+    }, 45000);
     const restore = () => {
+      clearTimeout(safetyTimer);
       this.adActive = false;
       this.lastAdTime = performance.now();
       this.game.setAdActive(false);

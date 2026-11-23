@@ -168,11 +168,15 @@ class Game {
     this.applyQuality();
 
     window.addEventListener('resize', () => this.resize());
-    document.addEventListener('visibilitychange', () => { if (document.hidden && this.state === 'playing') this.pause(); });
-    // first interaction unlocks audio
+    document.addEventListener('visibilitychange', () => {
+      const hidden = document.hidden;
+      this.audio?.setTabHidden?.(hidden);
+      if (hidden && this.state === 'playing') this.pause();
+    });
+    // user interactions unlock audio
     const unlock = () => this.audio.init();
-    window.addEventListener('pointerdown', unlock, { once: true });
-    window.addEventListener('keydown', unlock, { once: true });
+    window.addEventListener('pointerdown', unlock, { passive: true });
+    window.addEventListener('keydown', unlock, { passive: true });
 
     this.resize();
     this.last = performance.now();
@@ -208,6 +212,14 @@ class Game {
     r.toneMapping = THREE.ACESFilmicToneMapping;
     r.shadowMap.enabled = true;
     r.shadowMap.type = THREE.PCFShadowMap;
+    r.domElement.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      console.warn('WebGL context lost');
+    }, false);
+    r.domElement.addEventListener('webglcontextrestored', () => {
+      console.info('WebGL context restored');
+      this.applyQuality();
+    }, false);
     document.getElementById('app').appendChild(r.domElement);
   }
 
@@ -811,7 +823,10 @@ class Game {
     if (this.runTime >= 180) this.unlockTrophy('survivor');
     if (this.runTime >= 360) this.unlockTrophy('marathon');
     if (this.wantedLevel >= 4) this.unlockTrophy('five_star');
-    if (this.wantedLevel >= 6) this.unlockTrophy('seven_star');
+    if (this.wantedLevel >= 6) {
+      this.unlockTrophy('seven_star');
+      this.cg?.happytime?.();
+    }
     if ((t.carsStolen || 0) >= 10) this.unlockTrophy('carjacker');
     if ((t.officersDown || 0) >= 25) this.unlockTrophy('gunslinger');
     if (t.coins >= 10000) this.unlockTrophy('rich');

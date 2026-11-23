@@ -18,13 +18,20 @@ export class Input {
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => { this.keys.clear(); this.mouseDown = false; });
     window.addEventListener('contextmenu', (e) => e.preventDefault());
-    window.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
+    window.addEventListener('wheel', (e) => {
+      // Allow scrolling inside panels and lists; block document page scroll
+      const scrollable = e.target.closest?.('.seq-list, .mission-list, .controls-panel, .panel, .settings-panel, .trophy-panel, .story-panel');
+      if (!scrollable) e.preventDefault();
+    }, { passive: false });
     this.gpPrev = {};
     // mouse: aim point on screen + left button to shoot (on foot)
     this.mouse = { x: 0, y: 0, t: -99 };
     this.mouseDown = false;
     window.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') { this.mouse.x = e.clientX; this.mouse.y = e.clientY; this.mouse.t = performance.now(); } });
-    window.addEventListener('mousedown', (e) => { if (e.button === 0 && e.target.tagName === 'CANVAS') { this.mouseDown = true; this.mouse.t = performance.now(); } });
+    window.addEventListener('mousedown', (e) => {
+      window.focus();
+      if (e.button === 0 && e.target.tagName === 'CANVAS') { this.mouseDown = true; this.mouse.t = performance.now(); }
+    });
     window.addEventListener('mouseup', (e) => { if (e.button === 0) this.mouseDown = false; });
   }
 

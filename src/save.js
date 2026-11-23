@@ -43,14 +43,8 @@ function normalizeSave(parsed) {
 export function loadSave() {
   let parsed = null;
   try {
-    const cgRaw = window.CrazyGames?.SDK?.data?.getItem?.(KEY) || window.CrazyGames?.SDK?.data?.getItem?.(LEGACY_KEY);
-    if (cgRaw) parsed = parseRaw(cgRaw);
-  } catch { /* SDK not initialized yet */ }
-  if (!parsed) {
-    try {
-      parsed = parseRaw(localStorage.getItem(KEY)) || parseRaw(localStorage.getItem(LEGACY_KEY));
-    } catch { /* storage unavailable */ }
-  }
+    parsed = parseRaw(localStorage.getItem(KEY)) || parseRaw(localStorage.getItem(LEGACY_KEY));
+  } catch { /* storage unavailable */ }
   return normalizeSave(parsed);
 }
 

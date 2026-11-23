@@ -132,7 +132,9 @@ export class UI {
       case 'sr-restart': if (this.srDef) g.cg.requestMidgameAd(() => g.startMission(this.srDef.id, 0)); break;
       case 'sr-story': g.toMenu(); this.openStory(this.srDef?.seq); break;
       case 'garage': this.openGarage(); break;
-      case 'garage-from-over': g.toMenu(); this.openGarage(); break;
+      case 'garage-from-over':
+        g.cg.requestMidgameAd(() => { g.toMenu(); this.openGarage(); });
+        break;
       case 'maps': this.openMaps(); break;
       case 'settings': this.refreshSettings(); this.show('settings'); break;
       case 'back': g.showroomCar(g.save.selected); this.showMenu(); break;
@@ -147,7 +149,13 @@ export class UI {
           g.cg.requestMidgameAd(() => { if (g.lastMission) g.startMission(g.lastMission.id); else g.startRun(); });
         } else if (g.lastMission) g.startMission(g.lastMission.id); else g.startRun();
         break;
-      case 'quit': g.toMenu(); break;
+      case 'quit':
+        if (g.state === 'over') {
+          g.cg.requestMidgameAd(() => g.toMenu());
+        } else {
+          g.toMenu();
+        }
+        break;
       case 'joy-connect': g.joy.requestConnect(); break;
       case 'ad-coins': this.watchAdForCoins(); break;
       case 'ad-double': this.watchAdForDouble(); break;
@@ -619,6 +627,7 @@ export class UI {
       },
       () => {
         if (btn) btn.classList.remove('disabled');
+        this.toast('AD UNAVAILABLE', 'warn');
       },
     );
   }
@@ -643,6 +652,7 @@ export class UI {
       },
       () => {
         btns.forEach((b) => b.classList.remove('disabled'));
+        this.toast('AD UNAVAILABLE', 'warn');
       },
     );
   }

@@ -6,16 +6,22 @@ export class GameAudio {
     this.muted = false;
     this.platformMuted = false;
     this.adMuted = false;
+    this.tabHidden = false;
     this.musicOn = true;
     this.intensity = 0; // 0..4 music layers
   }
 
   get isMuted() {
-    return !!(this.muted || this.platformMuted || this.adMuted);
+    return !!(this.muted || this.platformMuted || this.adMuted || this.tabHidden);
   }
 
   init() {
-    if (this.ctx) { if (this.ctx.state === 'suspended' && !this.isMuted) this.ctx.resume(); return; }
+    if (this.ctx) {
+      if (this.ctx.state === 'suspended' && !this.isMuted) {
+        this.ctx.resume().catch(() => {});
+      }
+      return;
+    }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     const ctx = this.ctx = new AC();
@@ -57,6 +63,15 @@ export class GameAudio {
   setAdMuted(m) {
     this.adMuted = !!m;
     this.refreshGain();
+  }
+  setTabHidden(hidden) {
+    this.tabHidden = !!hidden;
+    this.refreshGain();
+    if (hidden && this.ctx && this.ctx.state === 'running') {
+      this.ctx.suspend().catch(() => {});
+    } else if (!hidden && this.ctx && this.ctx.state === 'suspended' && !this.isMuted) {
+      this.ctx.resume().catch(() => {});
+    }
   }
   setMusic(on) {
     this.musicOn = on;

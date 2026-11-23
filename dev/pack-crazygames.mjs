@@ -32,6 +32,22 @@ function walk(dir) {
   return files;
 }
 
+// Verify critical subdirectories and models
+const requiredAssets = [
+  'draco/draco_decoder.wasm',
+  'draco/draco_wasm_wrapper.js',
+  'models/city/kit.glb',
+  'models/people/casual.glb',
+  'models/people/swat.glb',
+];
+for (const rel of requiredAssets) {
+  const p = path.join(distDir, rel);
+  if (!fs.existsSync(p)) {
+    console.error(`Error: Missing required game asset in dist: ${rel}`);
+    process.exit(1);
+  }
+}
+
 const files = walk(distDir);
 const totalBytes = files.reduce((sum, f) => sum + fs.statSync(f).size, 0);
 const totalMB = (totalBytes / (1024 * 1024)).toFixed(2);
