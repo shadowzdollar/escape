@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "vite --port 5180",
     "build": "vite build",
+    "build:crazygames": "vite build && node dev/pack-crazygames.mjs",
+    "assets:crazygames": "node dev/crazygames-assets.mjs",
     "preview": "vite preview"
   },
   "keywords": [],

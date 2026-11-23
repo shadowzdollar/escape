@@ -4,17 +4,23 @@ export class GameAudio {
   constructor() {
     this.ctx = null;
     this.muted = false;
+    this.platformMuted = false;
+    this.adMuted = false;
     this.musicOn = true;
     this.intensity = 0; // 0..4 music layers
   }
 
+  get isMuted() {
+    return !!(this.muted || this.platformMuted || this.adMuted);
+  }
+
   init() {
-    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    if (this.ctx) { if (this.ctx.state === 'suspended' && !this.isMuted) this.ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     const ctx = this.ctx = new AC();
     this.master = ctx.createGain();
-    this.master.gain.value = this.muted ? 0 : 0.8;
+    this.master.gain.value = this.isMuted ? 0 : 0.8;
     const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -14; comp.ratio.value = 4;
     this.master.connect(comp).connect(ctx.destination);
@@ -33,9 +39,24 @@ export class GameAudio {
     this.startMusic();
   }
 
+  refreshGain() {
+    const m = this.isMuted;
+    if (m) window.speechSynthesis?.cancel?.();
+    if (this.master && this.ctx) {
+      this.master.gain.setTargetAtTime(m ? 0 : 0.8, this.ctx.currentTime, 0.04);
+    }
+  }
   setMuted(m) {
-    this.muted = m;
-    if (this.master) this.master.gain.setTargetAtTime(m ? 0 : 0.8, this.ctx.currentTime, 0.05);
+    this.muted = !!m;
+    this.refreshGain();
+  }
+  setPlatformMuted(m) {
+    this.platformMuted = !!m;
+    this.refreshGain();
+  }
+  setAdMuted(m) {
+    this.adMuted = !!m;
+    this.refreshGain();
   }
   setMusic(on) {
     this.musicOn = on;
@@ -256,7 +277,7 @@ export class GameAudio {
     const synth = window.speechSynthesis;
     if (!synth) return;
     synth.cancel();
-    if (!text || !this.ctx || this.muted) { this.sayUntil = 0; return; }
+    if (!text || !this.ctx || this.isMuted) { this.sayUntil = 0; return; }
     const voices = synth.getVoices?.() || [];
     if (!voices.length) return;
     const en = voices.filter((v) => /^en/i.test(v.lang));
@@ -270,7 +291,7 @@ export class GameAudio {
     this.sayUntil = this.ctx.currentTime + 1 + text.length * 0.065;
   }
   shout(line, dist = 0) {
-    if (!this.ctx || this.muted || (this.shoutT || 0) > this.ctx.currentTime) return;
+    if (!this.ctx || this.isMuted || (this.shoutT || 0) > this.ctx.currentTime) return;
     if ((this.sayUntil || 0) > this.ctx.currentTime) return; // don't talk over the story
     this.shoutT = this.ctx.currentTime + 4;
     const synth = window.speechSynthesis;

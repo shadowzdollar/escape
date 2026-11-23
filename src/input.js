@@ -5,13 +5,20 @@ export class Input {
     this.keys = new Set();
     this.touch = { left: false, right: false, gas: false, brake: false, drift: false, nitro: false, fire: false };
     this.pressed = new Set(); // one-shot keys this frame
+    const blockKeys = new Set([
+      'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Tab',
+      'ControlLeft', 'ControlRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD',
+      'KeyF', 'KeyE', 'KeyQ', 'KeyJ', 'KeyC', 'KeyH', 'KeyM', 'KeyP',
+    ]);
     window.addEventListener('keydown', (e) => {
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
+      if (blockKeys.has(e.code)) e.preventDefault();
       if (!this.keys.has(e.code)) this.pressed.add(e.code);
       this.keys.add(e.code);
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => { this.keys.clear(); this.mouseDown = false; });
+    window.addEventListener('contextmenu', (e) => e.preventDefault());
+    window.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
     this.gpPrev = {};
     // mouse: aim point on screen + left button to shoot (on foot)
     this.mouse = { x: 0, y: 0, t: -99 };
@@ -22,10 +29,20 @@ export class Input {
   }
 
   bindTouch(root) {
+    const oneShotKey = { action: 'KeyF', weapon: 'KeyQ' };
     for (const el of root.querySelectorAll('[data-touch]')) {
       const k = el.dataset.touch;
-      const on = (e) => { e.preventDefault(); this.touch[k] = true; el.classList.add('down'); };
-      const off = (e) => { e.preventDefault(); this.touch[k] = false; el.classList.remove('down'); };
+      const on = (e) => {
+        e.preventDefault();
+        if (oneShotKey[k]) this.pressed.add(oneShotKey[k]);
+        else this.touch[k] = true;
+        el.classList.add('down');
+      };
+      const off = (e) => {
+        e.preventDefault();
+        if (!oneShotKey[k]) this.touch[k] = false;
+        el.classList.remove('down');
+      };
       el.addEventListener('pointerdown', on);
       el.addEventListener('pointerup', off);
       el.addEventListener('pointercancel', off);
@@ -49,7 +66,7 @@ export class Input {
     let sprint = k.has('ShiftLeft') || k.has('ShiftRight') || t.nitro;
     let jump = this.pressed.has('Space') || (t.drift && !this.prevDrift);
     this.prevDrift = t.drift;
-    let fire = this.mouseDown || k.has('KeyJ') || k.has('ControlLeft');
+    let fire = this.mouseDown || k.has('KeyJ') || k.has('ControlLeft') || t.fire;
     let aimYaw = null, manual = false;
     const j = this.joy;
     if (j && j.active) {

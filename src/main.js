@@ -53,7 +53,8 @@ import { Input } from './input.js';
 import { SerialJoystick } from './joystick.js';
 import { UI } from './ui.js';
 import { Minimap } from './minimap.js';
-import { loadSave, writeSave } from './save.js';
+import { loadSave, writeSave, syncSaveFromCloud } from './save.js';
+import { CrazyGamesSDK } from './crazygames.js';
 import { clamp, damp, lerp } from './utils.js';
 
 const ATMOS = {
@@ -116,6 +117,8 @@ const QUALITY = {
 class Game {
   constructor() {
     this.save = loadSave();
+    this.cg = new CrazyGamesSDK(this);
+    this.adActive = false;
     this.state = 'loading';
     this.vehicles = new Set();
     this.focus = { x: 0, z: 0 };
@@ -175,8 +178,27 @@ class Game {
     this.last = performance.now();
     this.fpsAcc = 0; this.fpsFrames = 0;
     requestAnimationFrame((t) => this.loop(t));
-    this.loadMap(this.save.map).then(() => this.toMenu());
+    this.cg.init().finally(() => {
+      this.loadMap(this.save.map).then(() => this.toMenu());
+    });
     this.humans.load().catch((e) => console.warn('character models unavailable, using simple people', e));
+  }
+
+  setPlatformMute(muted) {
+    this.audio?.setPlatformMuted?.(muted);
+  }
+
+  setAdActive(active) {
+    this.adActive = !!active;
+    this.audio?.setAdMuted?.(active);
+    this.last = performance.now();
+  }
+
+  syncCloudSave() {
+    this.save = syncSaveFromCloud(this.save);
+    this.audio?.setMuted?.(!this.save.settings.sound);
+    this.audio?.setMusic?.(this.save.settings.music);
+    this.ui?.updateWallet?.();
   }
 
   // ------------------------------------------------------------------ setup
@@ -301,6 +323,8 @@ class Game {
   async loadMap(id) {
     const map = MAPS.find((m) => m.id === id) || MAPS[0];
     this.map = map;
+    this.cg?.gameplayStop?.();
+    this.cg?.loadingStart?.();
     this.state = 'loading';
     this.ui.show('loading');
     this.ui.setLoading(`Building ${map.name}…`);
@@ -324,6 +348,7 @@ class Game {
     this.showroomCar(this.save.selected);
     this.placeShowroomCamera(true);
     this.renderer.compile(this.scene, this.camera);
+    this.cg?.loadingStop?.();
   }
 
   applyAtmosphere(map) {
@@ -422,6 +447,7 @@ class Game {
 
   // ------------------------------------------------------------------ flow
   toMenu() {
+    this.cg?.gameplayStop?.();
     this.clearWorld();
     this.state = 'menu';
     if (this.showcase) this.showcase.root.visible = true;
@@ -504,6 +530,7 @@ class Game {
     // pre-populate some traffic around the start (kept clear of the bank)
     for (let k = 0; k < 10; k++) this.traffic.spawn(70, 180);
     if (intro && bank) {
+      this.cg?.gameplayStop?.();
       this.state = 'intro';
       this.ui.show();
       this.cine.start();
@@ -534,6 +561,7 @@ class Game {
   beginChase() {
     const p = this.player;
     this.state = 'playing';
+    this.cg?.gameplayStart?.();
     this.ui.show('hud');
     const md = this.pendingMission;
     this.pendingMission = null;
@@ -597,11 +625,13 @@ class Game {
   pause() {
     if (this.state !== 'playing') return;
     this.state = 'paused';
+    this.cg?.gameplayStop?.();
     this.ui.show('hud', 'pause');
   }
   resume() {
     if (this.state !== 'paused') return;
     this.state = 'playing';
+    this.cg?.gameplayStart?.();
     this.last = performance.now();
     this.ui.show('hud');
   }
@@ -623,6 +653,7 @@ class Game {
   gameOver(reason) {
     if (this.state !== 'playing') return;
     this.state = 'over';
+    this.cg?.gameplayStop?.();
     this.slowmo = 1.4;
     const p = this.player;
     if (reason === 'down') {
@@ -646,7 +677,10 @@ class Game {
     s.totals.runs++; s.totals.copsWrecked += this.wrecks; s.totals.coins += earned; s.totals.time += this.runTime;
     const prev = s.best[this.map.id];
     const newBest = !prev || this.score > prev.score;
-    if (newBest) s.best[this.map.id] = { score: Math.floor(this.score), time: this.runTime };
+    if (newBest) {
+      s.best[this.map.id] = { score: Math.floor(this.score), time: this.runTime };
+      this.cg?.happytime?.();
+    }
     this.persist();
     const result = {
       reason, time: this.runTime, score: this.score, wrecks: this.wrecks, nearMisses: this.nearMisses,
@@ -706,6 +740,8 @@ class Game {
     if (this.state !== 'playing') return;
     const m = this.mission, def = m.def;
     this.state = 'over';
+    this.cg?.gameplayStop?.();
+    this.cg?.happytime?.();
     this.slowmo = 1.2;
     const s = this.save;
     const st = s.story ||= { done: {}, xp: 0 };
@@ -739,6 +775,7 @@ class Game {
   missionFailed(reason, fx = 'fail') {
     if (this.state !== 'playing') return;
     this.state = 'over';
+    this.cg?.gameplayStop?.();
     this.slowmo = 1.1;
     this.audio.gameOver();
     this.ui.flash('hit');
@@ -764,6 +801,7 @@ class Game {
     const t = TROPHIES.find((x) => x.id === id);
     this.ui.toast(`🏆 TROPHY: ${t.name.toUpperCase()} +100`, 'good');
     this.audio.powerup();
+    this.cg?.happytime?.();
   }
 
   checkTrophies() {
@@ -1153,7 +1191,7 @@ class Game {
     let dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     this.frameDt = dt;
-    if (this.frozen) { this.render(); return; } // dev: simulation stepped manually
+    if (this.frozen || this.adActive) { this.render(); this.input.endFrame(); return; } // dev or video ad playing
     if (this.save.settings.fps) {
       this.fpsAcc += dt; this.fpsFrames++;
       if (this.fpsAcc > 0.5) { this.ui.setFps(`${Math.round(this.fpsFrames / this.fpsAcc)} FPS · ${this.renderer.info.render.calls} calls`); this.fpsAcc = 0; this.fpsFrames = 0; }

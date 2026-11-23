@@ -17,7 +17,8 @@ function shape(v) {
 
 export class SerialJoystick {
   constructor() {
-    this.supported = 'serial' in navigator;
+    const inIframe = (() => { try { return window.self !== window.top; } catch { return true; } })();
+    this.supported = 'serial' in navigator && !inIframe;
     this.connected = false;
     this.port = null;
     this.raw = { lx: 512, ly: 512, lb: 0, rx: 512, ry: 512, rb: 0 };
@@ -33,6 +34,8 @@ export class SerialJoystick {
     if (this.supported) {
       navigator.serial.addEventListener('disconnect', (e) => { if (e.target === this.port) this.lost(); });
       navigator.serial.addEventListener('connect', () => this.autoConnect());
+    } else if (typeof document !== 'undefined') {
+      document.querySelectorAll('.joy-only').forEach((el) => el.classList.add('hidden'));
     }
   }
 

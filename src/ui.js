@@ -122,14 +122,14 @@ export class UI {
       case 'endless': g.startRun({ intro: g.save.settings.intro !== false }); break;
       case 'story': if (g.state !== 'menu') g.toMenu(); this.openStory(); break;
       case 'trophies': this.openTrophies(); break;
-      case 'next-mission': { const n = this.nextMission; if (n) g.startMission(n.id); break; }
+      case 'next-mission': { const n = this.nextMission; if (n) g.cg.requestMidgameAd(() => g.startMission(n.id)); break; }
       case 'story-continue': { const n = nextStoryMission(g.save); if (n) this.openBrief(n); break; }
       case 'brief-start': if (this.briefDef) { g.audio.init(); g.startMission(this.briefDef.id, 0); } break;
       case 'brief-checkpoint': { const cp = g.save.story?.checkpoint; if (this.briefDef && cp?.id === this.briefDef.id) { g.audio.init(); g.startMission(cp.id, cp.step); } break; }
       case 'brief-back': this.openStory(this.storySeq); break;
-      case 'sr-next': if (this.nextMission) { g.toMenu(); this.openBrief(this.nextMission); } break;
-      case 'sr-retry': if (this.srDef) g.startMission(this.srDef.id, this.srStep || 0); break;
-      case 'sr-restart': if (this.srDef) g.startMission(this.srDef.id, 0); break;
+      case 'sr-next': if (this.nextMission) g.cg.requestMidgameAd(() => { g.toMenu(); this.openBrief(this.nextMission); }); break;
+      case 'sr-retry': if (this.srDef) g.cg.requestMidgameAd(() => g.startMission(this.srDef.id, this.srStep || 0)); break;
+      case 'sr-restart': if (this.srDef) g.cg.requestMidgameAd(() => g.startMission(this.srDef.id, 0)); break;
       case 'sr-story': g.toMenu(); this.openStory(this.srDef?.seq); break;
       case 'garage': this.openGarage(); break;
       case 'garage-from-over': g.toMenu(); this.openGarage(); break;
@@ -142,9 +142,15 @@ export class UI {
       case 'controls-back': this.closeControls(); break;
       case 'pause': g.pause(); break;
       case 'resume': g.resume(); break;
-      case 'restart': if (g.lastMission) g.startMission(g.lastMission.id); else g.startRun(); break;
+      case 'restart':
+        if (g.state === 'over') {
+          g.cg.requestMidgameAd(() => { if (g.lastMission) g.startMission(g.lastMission.id); else g.startRun(); });
+        } else if (g.lastMission) g.startMission(g.lastMission.id); else g.startRun();
+        break;
       case 'quit': g.toMenu(); break;
       case 'joy-connect': g.joy.requestConnect(); break;
+      case 'ad-coins': this.watchAdForCoins(); break;
+      case 'ad-double': this.watchAdForDouble(); break;
     }
   }
 
@@ -261,7 +267,10 @@ export class UI {
       <span>Experience</span><b>+${r.xp} XP</b><span>Rank</span><b>${r.rank1 > r.rank0 ? `${r.rank0} → ${r.rank1} RANK UP!` : r.rank1}</b>`;
     $('#sr-unlock').textContent = r.unlocked ? `NEW VEHICLE UNLOCKED: ${r.unlocked}` : r.next && d.kind === 'story' ? `NEXT: ${r.next.title}` : '';
     $('#sr-unlock').classList.toggle('show', !!$('#sr-unlock').textContent);
+    this.lastRunBonus = r.reward || 0;
+    this.doubleClaimed = false;
     $('#sr-btns').innerHTML = (r.next ? '<button class="btn big primary" data-action="sr-next">NEXT MISSION</button>' : '')
+      + (this.lastRunBonus > 0 ? '<button class="btn ad-btn" id="sr-ad-double" data-action="ad-double">🎬 WATCH AD · 2× REWARD</button>' : '')
       + '<button class="btn" data-action="sr-restart">REPLAY</button><button class="btn" data-action="sr-story">STORY MENU</button>';
     this.show('sresult');
   }
@@ -583,9 +592,60 @@ export class UI {
       if (g.avatar.swimming && !hint) hint = 'SWIMMING: HEAD FOR THE BANK';
     }
     if (hint !== this._hint) { el('h-hint').textContent = hint; el('h-hint').classList.toggle('show', !!hint); this._hint = hint; }
+    // touch button state for mobile players
+    const tAct = el('t-action'), tFire = el('t-fire'), tWep = el('t-weapon');
+    if (tAct) tAct.textContent = foot ? 'GET IN' : 'EXIT';
+    const armed = foot || c.carGuns > 0 || c.carRockets > 0 || !!g.car?.weapons;
+    if (tFire) tFire.style.display = armed ? '' : 'none';
+    const multiWep = foot ? (c.ammo.smg > 0 || c.ammo.rpg > 0) : (g.car?.weapons?.length > 1);
+    if (tWep) tWep.style.display = multiWep ? '' : 'none';
   }
 
   setFps(v) { this.h.fps.textContent = v; }
+
+  watchAdForCoins() {
+    const g = this.game;
+    const btn = $('#garage-ad-coins');
+    if (btn) btn.classList.add('disabled');
+    g.cg.requestRewardedAd(
+      () => {
+        if (btn) btn.classList.remove('disabled');
+        g.save.coins += 500;
+        g.save.totals.coins += 500;
+        g.persist();
+        g.audio.powerup();
+        this.updateWallet();
+        if (this.current.includes('garage')) this.renderGarage();
+      },
+      () => {
+        if (btn) btn.classList.remove('disabled');
+      },
+    );
+  }
+
+  watchAdForDouble() {
+    const g = this.game;
+    if (this.doubleClaimed || !(this.lastRunBonus > 0)) return;
+    const bonus = this.lastRunBonus;
+    const btns = [$('#go-ad-double'), $('#sr-ad-double')].filter(Boolean);
+    btns.forEach((b) => b.classList.add('disabled'));
+    g.cg.requestRewardedAd(
+      () => {
+        this.doubleClaimed = true;
+        g.save.coins += bonus;
+        g.save.totals.coins += bonus;
+        g.persist();
+        g.audio.powerup();
+        this.updateWallet();
+        const goCoins = $('#go-coins');
+        if (goCoins) goCoins.textContent = (bonus * 2).toLocaleString();
+        btns.forEach((b) => { b.textContent = '✓ 2× CLAIMED'; });
+      },
+      () => {
+        btns.forEach((b) => b.classList.remove('disabled'));
+      },
+    );
+  }
 
   showGameOver(r) {
     const t = $('#go-title');
@@ -601,6 +661,14 @@ export class UI {
       <span>Best drift</span><b>${Math.floor(r.bestDrift).toLocaleString()}</b>`;
     $('#go-coins').textContent = r.earned.toLocaleString();
     $('#go-best').classList.toggle('show', r.newBest);
+    this.lastRunBonus = r.earned || 0;
+    this.doubleClaimed = false;
+    const adBtn = $('#go-ad-double');
+    if (adBtn) {
+      adBtn.style.display = this.lastRunBonus > 0 ? '' : 'none';
+      adBtn.classList.remove('disabled');
+      adBtn.textContent = '🎬 WATCH AD · 2× COINS';
+    }
     this.show('gameover');
   }
 }

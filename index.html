@@ -4,11 +4,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <title>Escape: Overdrive</title>
-  <link rel="icon" href="/favicon.svg" />
+  <link rel="icon" href="./favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Russo+One&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/src/style.css" />
+  <link rel="stylesheet" href="./src/style.css" />
+  <script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
 </head>
 <body>
   <div id="app"></div>
@@ -40,7 +41,7 @@
         <div><kbd>C</kbd> camera · <kbd>Esc</kbd> pause · <kbd>M</kbd> mute</div>
         <div><kbd>H</kbd> show <b>all</b> controls</div>
       </div>
-      <div class="joy-badge" id="joy-badge" data-action="settings">🎮 NO CONTROLLER</div>
+      <div class="joy-badge joy-only" id="joy-badge" data-action="settings">🎮 NO CONTROLLER</div>
     </div>
     <div class="wallet"><span class="coin-ico"></span><b id="wallet">0</b></div>
   </div>
@@ -126,6 +127,7 @@
       <div class="car-weapons" id="car-weapons"></div>
       <div class="paints" id="paints"></div>
       <button class="btn big primary" id="car-action">SELECTED</button>
+      <button class="btn ad-btn" id="garage-ad-coins" data-action="ad-coins">🎬 WATCH AD · +500 COINS</button>
     </div>
     <div class="wallet"><span class="coin-ico"></span><b class="wallet-val">0</b></div>
   </div>
@@ -149,10 +151,10 @@
       <div class="setting"><span>Intro cinematic</span><div class="seg" data-setting="intro"><button data-v="true">ON</button><button data-v="false">OFF</button></div></div>
       <div class="setting"><span>Story voices</span><div class="seg" data-setting="voice"><button data-v="true">ON</button><button data-v="false">OFF</button></div></div>
       <div class="setting"><span>FPS counter</span><div class="seg" data-setting="fps"><button data-v="true">ON</button><button data-v="false">OFF</button></div></div>
-      <div class="setting"><span>Arduino joystick</span><button class="btn small-btn" data-action="joy-connect">CONNECT</button></div>
-      <div class="setting joy-line" id="joy-status">Plug in the controller and press CONNECT (Chrome / Edge).</div>
-      <div class="setting"><span>Invert steering</span><div class="seg" data-setting="joyInvSteer"><button data-v="true">ON</button><button data-v="false">OFF</button></div></div>
-      <div class="setting"><span>Invert throttle</span><div class="seg" data-setting="joyInvThrottle"><button data-v="true">ON</button><button data-v="false">OFF</button></div></div>
+      <div class="setting joy-only"><span>Arduino joystick</span><button class="btn small-btn" data-action="joy-connect">CONNECT</button></div>
+      <div class="setting joy-line joy-only" id="joy-status">Plug in the controller and press CONNECT (Chrome / Edge).</div>
+      <div class="setting joy-only"><span>Invert steering</span><div class="seg" data-setting="joyInvSteer"><button data-v="true">ON</button><button data-v="false">OFF</button></div></div>
+      <div class="setting joy-only"><span>Invert throttle</span><div class="seg" data-setting="joyInvThrottle"><button data-v="true">ON</button><button data-v="false">OFF</button></div></div>
       <div class="setting stats-line" id="lifetime"></div>
     </div>
   </div>
@@ -192,12 +194,19 @@
       <div class="tl">
         <button data-touch="left">◀</button>
         <button data-touch="right">▶</button>
+        <button data-touch="action" class="small" id="t-action">EXIT</button>
       </div>
       <div class="tr">
-        <button data-touch="nitro" class="small">N₂O</button>
-        <button data-touch="drift" class="small">DRIFT</button>
-        <button data-touch="brake">▼</button>
-        <button data-touch="gas" class="gas">▲</button>
+        <div class="tr-top">
+          <button data-touch="weapon" class="small" id="t-weapon">GUN</button>
+          <button data-touch="fire" class="small fire-btn" id="t-fire">FIRE</button>
+          <button data-touch="nitro" class="small" id="t-nitro">N₂O</button>
+          <button data-touch="drift" class="small" id="t-drift">DRIFT</button>
+        </div>
+        <div class="tr-bot">
+          <button data-touch="brake">▼</button>
+          <button data-touch="gas" class="gas">▲</button>
+        </div>
       </div>
     </div>
   </div>
@@ -264,6 +273,7 @@
       <div class="go-stats" id="go-stats"></div>
       <div class="go-earn"><span class="coin-ico"></span> +<b id="go-coins">0</b></div>
       <div class="go-best" id="go-best">NEW BEST!</div>
+      <button class="btn ad-btn" id="go-ad-double" data-action="ad-double">🎬 WATCH AD · 2× COINS</button>
       <button class="btn big primary" data-action="restart">RETRY</button>
       <button class="btn" data-action="garage-from-over">GARAGE</button>
       <button class="btn" data-action="quit">MAIN MENU</button>
@@ -280,6 +290,6 @@
   </div>
 
   <div id="flash"></div>
-  <script type="module" src="/src/main.js"></script>
+  <script type="module" src="./src/main.js"></script>
 </body>
 </html>

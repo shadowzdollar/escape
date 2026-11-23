@@ -51,6 +51,12 @@ html, body {
 .btn.big { font-size: 26px; padding: 16px 26px; }
 .btn.icon { min-width: 0; width: 48px; height: 48px; padding: 0; text-align: center; font-size: 24px; }
 .btn.disabled, .btn:disabled { opacity: .45; pointer-events: none; }
+.btn.ad-btn {
+  background: linear-gradient(135deg, #1fd169, #0c9c47); color: #051a0d; border: none;
+  box-shadow: 0 5px 20px rgba(31, 209, 105, 0.32); text-align: center;
+}
+.btn.ad-btn:hover { box-shadow: 0 7px 26px rgba(31, 209, 105, 0.5); }
+.joy-only.hidden { display: none !important; }
 
 /* ---------- menu ---------- */
 #menu { background: linear-gradient(90deg, rgba(6,9,15,.88) 0%, rgba(6,9,15,.55) 34%, rgba(6,9,15,0) 60%); }
@@ -176,9 +182,11 @@ kbd {
 }
 .touch button.down { background: rgba(255, 204, 0, .55); }
 .touch button.small { width: 64px; height: 64px; font-size: 13px; font-family: var(--title); }
+.touch button.fire-btn { border-color: rgba(255, 59, 92, .7); background: rgba(180, 20, 45, .45); }
 .touch button.gas { width: 100px; height: 100px; }
-.touch .tl { position: absolute; left: 20px; bottom: 26px; display: flex; gap: 16px; }
-.touch .tr { position: absolute; right: 20px; bottom: 26px; display: flex; gap: 12px; align-items: flex-end; }
+.touch .tl { position: absolute; left: 20px; bottom: 26px; display: flex; gap: 14px; align-items: flex-end; }
+.touch .tr { position: absolute; right: 20px; bottom: 26px; display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+.touch .tr-top, .touch .tr-bot { display: flex; gap: 10px; align-items: flex-end; }
 body.is-touch .touch { display: block; }
 body.is-touch .pause-btn { display: block; }
 body.is-touch .hud-bl { bottom: 150px; }
