@@ -311,7 +311,7 @@ export class UI {
 
   openTrophies() {
     const got = this.game.save.trophies || {};
-    $('#trophy-grid').innerHTML = TROPHIES.map((t) => `<div class="trophy ${got[t.id] ? 'got' : ''}"><div class="ico">🏆</div><div><b>${t.name}</b><span>${t.desc}</span></div></div>`).join('');
+    $('#trophy-grid').innerHTML = TROPHIES.map((t) => `<div class="trophy ${got[t.id] ? 'got' : ''}"><div class="ico">🏆</div><div><b>${t.name}</b><span>${t.desc} · <em>+${t.reward || 250} coins</em></span></div></div>`).join('');
     $('#trophy-count').textContent = `${Object.keys(got).length}/${TROPHIES.length}`;
     this.show('trophies');
   }
@@ -474,6 +474,23 @@ export class UI {
         this.renderGarage();
       };
     }
+    const adUnlockBtn = $('#garage-ad-unlock');
+    if (adUnlockBtn) {
+      if (!owned && car.adUnlock && !isBoat) {
+        s.adProgress ||= {};
+        const watched = s.adProgress[car.id] || 0;
+        const need = car.adUnlock;
+        adUnlockBtn.style.display = '';
+        adUnlockBtn.classList.remove('disabled');
+        adUnlockBtn.textContent = need === 1
+          ? `🎬 WATCH AD TO UNLOCK FREE`
+          : `🎬 WATCH AD TO UNLOCK (${watched}/${need})`;
+        adUnlockBtn.onclick = () => this.watchAdForVehicle(car);
+      } else {
+        adUnlockBtn.style.display = 'none';
+        adUnlockBtn.onclick = null;
+      }
+    }
     this.updateWallet();
     g.showroomCar(car.id);
   }
@@ -611,23 +628,63 @@ export class UI {
 
   setFps(v) { this.h.fps.textContent = v; }
 
-  watchAdForCoins() {
-    const g = this.game;
-    const btn = $('#garage-ad-coins');
-    if (btn) btn.classList.add('disabled');
+  watchAdForVehicle(car) {
+    const g = this.game, s = g.save;
+    if (!car || !car.adUnlock || s.owned.includes(car.id) || this.adPending) return;
+    const btn = $('#garage-ad-unlock');
+    this.adPending = true;
+    if (btn) { btn.classList.add('disabled'); btn.textContent = 'LOADING AD…'; }
+    // Reward is ONLY granted after CrazyGames SDK confirms ad completion (adFinished).
     g.cg.requestRewardedAd(
       () => {
-        if (btn) btn.classList.remove('disabled');
+        this.adPending = false;
+        s.adProgress ||= {};
+        const next = (s.adProgress[car.id] || 0) + 1;
+        s.adProgress[car.id] = next;
+        if (next >= car.adUnlock) {
+          if (!s.owned.includes(car.id)) s.owned.push(car.id);
+          s.selected = car.id;
+          g.persist();
+          g.audio.powerup();
+          g.cg?.happytime?.();
+          this.toast(`UNLOCKED ${car.name}!`, 'good');
+        } else {
+          g.persist();
+          g.audio.coin();
+          this.toast(`${car.name}: ${next}/${car.adUnlock} ADS WATCHED`, 'good');
+        }
+        if (this.current.includes('garage')) this.renderGarage();
+      },
+      () => {
+        this.adPending = false;
+        this.toast('AD UNAVAILABLE — TRY AGAIN LATER', 'warn');
+        if (this.current.includes('garage')) this.renderGarage();
+      },
+    );
+  }
+
+  watchAdForCoins() {
+    const g = this.game;
+    if (this.adPending) return;
+    const btn = $('#garage-ad-coins');
+    this.adPending = true;
+    if (btn) { btn.classList.add('disabled'); btn.textContent = 'LOADING AD…'; }
+    g.cg.requestRewardedAd(
+      () => {
+        this.adPending = false;
+        if (btn) { btn.classList.remove('disabled'); btn.textContent = '🎬 WATCH AD · +500 COINS'; }
         g.save.coins += 500;
         g.save.totals.coins += 500;
         g.persist();
         g.audio.powerup();
         this.updateWallet();
+        this.toast('+500 COINS EARNED!', 'good');
         if (this.current.includes('garage')) this.renderGarage();
       },
       () => {
-        if (btn) btn.classList.remove('disabled');
-        this.toast('AD UNAVAILABLE', 'warn');
+        this.adPending = false;
+        if (btn) { btn.classList.remove('disabled'); btn.textContent = '🎬 WATCH AD · +500 COINS'; }
+        this.toast('AD UNAVAILABLE — TRY AGAIN LATER', 'warn');
       },
     );
   }

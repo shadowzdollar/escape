@@ -145,21 +145,29 @@ export class GameAudio {
     if (kind === 'rain') { this.ambFilter.type = 'highpass'; this.ambFilter.frequency.setValueAtTime(1500, t); this.ambGain.gain.setTargetAtTime(0.05, t, 0.5); } else if (kind === 'wind') { this.ambFilter.type = 'lowpass'; this.ambFilter.frequency.setValueAtTime(500, t); this.ambGain.gain.setTargetAtTime(0.035, t, 0.5); } else this.ambGain.gain.setTargetAtTime(0, t, 0.3);
   }
 
-  // Continuous state from the game each frame.
-  update({ speedRatio = 0, throttle = 0, active = false, drift = 0, siren = 0, sirenPan = 0, rotor = 0, nitro = false, foot = false }) {
+  // Continuous state from the game each frame, tuned per vehicle category.
+  update({ speedRatio = 0, throttle = 0, active = false, drift = 0, siren = 0, sirenPan = 0, rotor = 0, nitro = false, foot = false, category = 'compact' }) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
     const rpm = 0.25 + speedRatio * 0.75;
-    // fake gear shifts: sawtooth of rpm within a gear
+    // Per-category engine profiles: base Hz, rev span, harmonic ratio, filter brightness
+    const prof = {
+      compact: { base: 44, span: 118, sub: 0.5,  flt: 400, gain: 0.095 },
+      muscle:  { base: 32, span: 96,  sub: 0.5,  flt: 320, gain: 0.115 },
+      exotic:  { base: 62, span: 175, sub: 1.5,  flt: 620, gain: 0.105 },
+      heavy:   { base: 26, span: 64,  sub: 0.5,  flt: 240, gain: 0.125 },
+      boat:    { base: 36, span: 108, sub: 0.5,  flt: 380, gain: 0.105 },
+      tank:    { base: 22, span: 52,  sub: 0.5,  flt: 210, gain: 0.135 },
+    }[category] || { base: 42, span: 115, sub: 0.5, flt: 380, gain: 0.1 };
     const gear = Math.min(4, Math.floor(speedRatio * 5));
     const inGear = speedRatio * 5 - gear;
-    const r = active ? 0.3 + inGear * 0.55 + gear * 0.06 + throttle * 0.1 : 0.2;
-    const f = 38 + r * 120 * (nitro ? 1.15 : 1);
+    const r = active ? 0.28 + inGear * 0.56 + gear * 0.06 + throttle * 0.12 : 0.2;
+    const f = prof.base + r * prof.span * (nitro ? 1.18 : 1);
     this.eng1.frequency.setTargetAtTime(f, t, 0.05);
-    this.eng2.frequency.setTargetAtTime(f * 0.5, t, 0.05);
-    this.engFilter.frequency.setTargetAtTime(350 + throttle * 900 + rpm * 700, t, 0.08);
-    this.engGain.gain.setTargetAtTime(active && !foot ? 0.1 + throttle * 0.07 : 0, t, 0.1);
-    this.skidGain.gain.setTargetAtTime(active ? Math.min(0.16, drift * 0.02) : 0, t, 0.05);
+    this.eng2.frequency.setTargetAtTime(f * prof.sub, t, 0.05);
+    this.engFilter.frequency.setTargetAtTime(prof.flt + throttle * 900 + rpm * 750, t, 0.08);
+    this.engGain.gain.setTargetAtTime(active && !foot ? prof.gain + throttle * 0.07 : 0, t, 0.1);
+    this.skidGain.gain.setTargetAtTime(active && category !== 'boat' ? Math.min(0.16, drift * 0.02) : 0, t, 0.05);
     this.sirenGain.gain.setTargetAtTime(active ? Math.min(0.09, siren) : 0, t, 0.2);
     if (this.sirenPan) this.sirenPan.pan.setTargetAtTime(Math.max(-0.8, Math.min(0.8, sirenPan)), t, 0.2);
     this.rotorGain.gain.setTargetAtTime(active ? Math.min(0.35, rotor) : 0, t, 0.3);
@@ -286,35 +294,97 @@ export class GameAudio {
     out.connect(this.sfx);
     o.start(t); vib.start(t); o.stop(t + 0.8); vib.stop(t + 0.8);
   }
-  // Police shouting: real speech when the browser has voices, radio squelch otherwise.
-  // Story dialogue through browser speech (one line at a time; '' stops talking).
+  // Rank browser speech voices so neural/natural human voices are always preferred
+  // over legacy robotic voices, and assign distinct voices per cast slot.
+  pickHumanVoice(voice = {}) {
+    const synth = window.speechSynthesis;
+    const voices = synth?.getVoices?.() || [];
+    if (!voices.length) return null;
+    const en = voices.filter((v) => /^en/i.test(v.lang));
+    const pool = en.length ? en : voices;
+    const femaleRe = /female|aria|jenny|ava|emma|samantha|victoria|karen|susan|hazel|libby|serena|moira|tessa|sonia|michelle|clara|zira|google uk english female/i;
+    const maleRe = /\bmale|andrew|brian|guy|christopher|eric|ryan|daniel|alex|george|arthur|oliver|thomas|davis|tony|google uk english male/i;
+    const qualityScore = (v) => {
+      const n = v.name || '';
+      let s = 0;
+      if (/natural|neural|online|premium|enhanced/i.test(n)) s += 50;
+      if (/google/i.test(n)) s += 30;
+      if (/microsoft.*(aria|guy|jenny|andrew|emma|brian|sonia|ryan)/i.test(n)) s += 40;
+      if (/samantha|daniel|karen|moira|serena|tessa|alex/i.test(n)) s += 25;
+      if (/espeak|mbrola|festival|flite/i.test(n)) s -= 40;
+      if (/en[-_]US/i.test(v.lang)) s += 5;
+      return s;
+    };
+    const genderFiltered = pool.filter((v) => (voice.female ? femaleRe.test(v.name) : (maleRe.test(v.name) || !femaleRe.test(v.name))));
+    const ranked = (genderFiltered.length ? genderFiltered : pool).slice().sort((a, b) => qualityScore(b) - qualityScore(a));
+    // Distribute different characters across the top human-sounding voices
+    const topCount = Math.min(ranked.length, 5);
+    const idx = (voice.slot || 0) % Math.max(1, topCount);
+    return ranked[idx] || ranked[0];
+  }
+
+  // Story dialogue playback: supports pre-recorded audio clips (if voice.clipUrl is provided)
+  // with crisp radio squelch cues and natural human voice synthesis fallback.
   say(text, voice = {}) {
     const synth = window.speechSynthesis;
-    if (!synth) return;
-    synth.cancel();
+    if (this.voiceAudio) { try { this.voiceAudio.pause(); } catch {} this.voiceAudio = null; }
+    synth?.cancel?.();
     if (!text || !this.ctx || this.isMuted) { this.sayUntil = 0; return; }
-    const voices = synth.getVoices?.() || [];
-    if (!voices.length) return;
-    const en = voices.filter((v) => /^en/i.test(v.lang));
-    const pickV = voice.female
-      ? en.find((v) => /female|zira|samantha|victoria|karen|susan|hazel|libby/i.test(v.name))
-      : en.find((v) => /\bmale|david|daniel|alex|fred|george|ryan/i.test(v.name));
+    if (voice.radio) this.radio(0.35);
+    if (voice.clipUrl) {
+      const a = new Audio(voice.clipUrl);
+      a.volume = 0.92;
+      this.voiceAudio = a;
+      a.play().catch(() => {});
+      this.sayUntil = this.ctx.currentTime + 1 + text.length * 0.06;
+      return;
+    }
+    if (!synth) return;
+    const v = this.pickHumanVoice(voice);
+    if (!v) return;
     const u = new SpeechSynthesisUtterance(text);
-    u.voice = pickV || en[0] || voices[0];
-    u.pitch = voice.pitch ?? 1; u.rate = voice.rate ?? 1; u.volume = 0.95;
+    u.voice = v;
+    // Clamp pitch/rate to natural human cadence (eliminates robotic chipmunk/monster voices)
+    const urgent = voice.tone === 'urgent' || /!/.test(text);
+    u.pitch = Math.max(0.82, Math.min(1.18, voice.pitch ?? 1.0));
+    u.rate = Math.max(0.88, Math.min(1.16, (voice.rate ?? 1.0) * (urgent ? 1.04 : 1.0)));
+    u.volume = 0.92;
+    if (voice.radio) u.onend = () => { if (!this.isMuted) this.radio(0.22); };
     synth.speak(u);
-    this.sayUntil = this.ctx.currentTime + 1 + text.length * 0.065;
+    this.sayUntil = this.ctx.currentTime + 1 + text.length * 0.062;
   }
+
+  // Ambient pedestrian vocal reactions when dodging cars or witnessing chaos
+  pedReact(kind = 'dodge', dist = 0) {
+    if (!this.ctx || this.isMuted || (this.pedReactT || 0) > this.ctx.currentTime) return;
+    if ((this.sayUntil || 0) > this.ctx.currentTime) return; // never interrupt story dialogue
+    this.pedReactT = this.ctx.currentTime + 3.2 + Math.random() * 2.5;
+    const lines = kind === 'dodge'
+      ? ['Watch it!', 'Whoa!', 'Hey, look out!', 'Careful!', 'Are you crazy?!']
+      : ['Run!', 'Get back!', 'Call the cops!', 'Oh no!'];
+    const line = lines[Math.floor(Math.random() * lines.length)];
+    const synth = window.speechSynthesis;
+    const v = this.pickHumanVoice({ female: Math.random() < 0.5, slot: Math.floor(Math.random() * 5) });
+    if (synth && v) {
+      const u = new SpeechSynthesisUtterance(line);
+      u.voice = v;
+      u.pitch = 0.94 + Math.random() * 0.16;
+      u.rate = 1.08 + Math.random() * 0.08;
+      u.volume = Math.max(0.18, 1 - dist / 35) * 0.72;
+      synth.speak(u);
+    }
+  }
+
   shout(line, dist = 0) {
     if (!this.ctx || this.isMuted || (this.shoutT || 0) > this.ctx.currentTime) return;
     if ((this.sayUntil || 0) > this.ctx.currentTime) return; // don't talk over the story
-    this.shoutT = this.ctx.currentTime + 4;
+    this.shoutT = this.ctx.currentTime + 4.5;
     const synth = window.speechSynthesis;
-    const voices = synth?.getVoices?.() || [];
-    if (synth && voices.length) {
+    const v = this.pickHumanVoice({ female: false, slot: 3 });
+    if (synth && v) {
       const u = new SpeechSynthesisUtterance(line);
-      u.voice = voices.find((v) => /en[-_](US|GB)/i.test(v.lang) && /male|david|daniel|alex|fred/i.test(v.name)) || voices.find((v) => /^en/i.test(v.lang)) || voices[0];
-      u.rate = 1.15; u.pitch = 0.75; u.volume = Math.max(0.15, 1 - dist / 50) * 0.9;
+      u.voice = v;
+      u.rate = 1.08; u.pitch = 0.88; u.volume = Math.max(0.18, 1 - dist / 50) * 0.85;
       synth.cancel(); synth.speak(u);
     } else this.radio(0.6);
   }

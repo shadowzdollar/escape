@@ -18,24 +18,39 @@ export const CARS = [
     stats: { speed: 37, accel: 24, handling: 3.1, grip: 7.0, hp: 100, mass: 1.0 },
   },
   {
-    id: 'cruiser', name: 'CRUISER', model: 'sedan', price: 300, color: '#2f6fe0',
+    id: 'cruiser', name: 'CRUISER', model: 'sedan', price: 300, adUnlock: 1, color: '#2f6fe0',
     tagline: 'Everyday sedan with a surprising kick.',
     stats: { speed: 40, accel: 25, handling: 2.9, grip: 7.4, hp: 125, mass: 1.2 },
   },
   {
-    id: 'brute', name: 'BRUTE', model: 'muscle', price: 900, color: '#f4a300',
+    id: 'brute', name: 'BRUTE', model: 'muscle', price: 900, adUnlock: 2, color: '#f4a300',
     tagline: 'V8 muscle. Loves drifting, loves ramming.',
     stats: { speed: 45, accel: 28, handling: 2.6, grip: 6.0, hp: 160, mass: 1.55 },
   },
   {
-    id: 'ranger', name: 'RANGER', model: 'truck', price: 1800, color: '#4d8a3d',
+    id: 'ranger', name: 'RANGER', model: 'truck', price: 1800, adUnlock: 2, color: '#4d8a3d',
     tagline: 'Lifted off-road pickup. Shrugs off cops.',
     stats: { speed: 41, accel: 23, handling: 2.5, grip: 7.2, hp: 240, mass: 2.1 },
   },
   {
-    id: 'stinger', name: 'STINGER', model: 'sports', price: 3000, color: '#d90429',
+    id: 'vanguard', name: 'VANGUARD SUV', model: 'suv', price: 2200, adUnlock: 2, color: '#2b5876',
+    tagline: 'Heavy urban SUV. High clearance, armored doors.',
+    stats: { speed: 43, accel: 25, handling: 2.6, grip: 7.5, hp: 255, mass: 2.0 },
+  },
+  {
+    id: 'stinger', name: 'STINGER', model: 'sports', price: 3000, adUnlock: 3, color: '#d90429',
     tagline: 'Precision sports coupe. Corners like rails.',
     stats: { speed: 49, accel: 31, handling: 3.3, grip: 8.2, hp: 125, mass: 1.2 },
+  },
+  {
+    id: 'hauler', name: 'TITAN RIG', model: 'cargo', price: 4500, adUnlock: 3, color: '#334155',
+    tagline: 'Heavy commercial freight truck. Plows right through roadblocks.',
+    stats: { speed: 34, accel: 16, handling: 1.9, grip: 7.5, hp: 380, mass: 3.8 },
+  },
+  {
+    id: 'inferno', name: 'INFERNO TANKER', model: 'tanker', price: 6000, adUnlock: 3, color: '#b91c1c',
+    tagline: 'Steel petroleum tanker. Massive mass and unstoppable momentum.',
+    stats: { speed: 33, accel: 15, handling: 1.85, grip: 7.4, hp: 420, mass: 4.2 },
   },
   {
     id: 'apex', name: 'APEX', model: 'super', price: 5000, color: '#ffc300',
@@ -72,6 +87,7 @@ export const CARS = [
 export const PAINTS = [
   '#e63946', '#d90429', '#f77f00', '#ffc300', '#8ac926', '#2a9d8f', '#00b4d8',
   '#2f6fe0', '#3a0ca3', '#7b2ff7', '#f72585', '#ffffff', '#adb5bd', '#343a40', '#111111',
+  '#ffd700', '#00f5d4', '#ff007f', '#7fff00', '#120a4f',
 ];
 
 export const MAPS = [
@@ -118,8 +134,15 @@ export const COP_TYPES = {
   tank: { model: 'tank', speed: 24, accel: 11, handling: 1.5, grip: 9.0, hp: 700, mass: 7.0, livery: null },
 };
 
-export const TRAFFIC_MODELS = ['hatch', 'sedan', 'sedan', 'van', 'hatch', 'taxi', 'truck', 'sedan'];
-export const TRAFFIC_COLORS = ['#d8d8d8', '#1d3557', '#9d0208', '#6a994e', '#f1faee', '#495057', '#bc6c25', '#264653', '#e9c46a', '#2b2d42', '#8d99ae', '#a4133c'];
+export const TRAFFIC_MODELS = [
+  'hatch', 'sedan', 'sedan', 'suv', 'suv', 'pickup', 'taxi', 'van',
+  'delivery', 'sports', 'muscle', 'bus', 'cargo', 'tanker', 'super',
+];
+export const TRAFFIC_COLORS = [
+  '#d8d8d8', '#1d3557', '#9d0208', '#6a994e', '#f1faee', '#495057',
+  '#bc6c25', '#264653', '#e9c46a', '#2b2d42', '#8d99ae', '#a4133c',
+  '#3a86ff', '#fb5607', '#2a9d8f', '#6c757d',
+];
 
 export const POWERUPS = {
   nitro: { label: 'NITRO', color: '#00e5ff', icon: 'N' },

@@ -84,6 +84,50 @@ SPECS.minima = { ...SPECS.hatch, L: 3.6, W: 1.68, wr: 0.3, ww: 0.2, fa: 1.2, ra:
 SPECS.hippie = { ...SPECS.van, L: 4.4, noseDz: 0.04, noseTop: 1.1, hoodY: 1.15, cowlZ: 2.0, roofFZ: 1.9, roofRZ: -2.0, rwZ: -2.1, roofY: 2.05, twoTone: 'lower', head: 'round', tail: 'round', chrome: true, rim: 'steel', sideWinRear: -1.6 };
 SPECS.eldorado = { ...SPECS.sedan, L: 5.6, W: 2.0, fa: 1.75, ra: -1.8, noseDz: 0.15, noseTop: 0.75, hoodY: 0.9, cowlZ: 0.8, roofY: 1.38, roofFZ: -0.2, roofRZ: -1.2, rwZ: -1.7, deckY: 0.95, tailTop: 0.95, tailDz: 0.1, fins: true, chrome: true, head: 'twin', tail: 'round', rim: 'steel', twoTone: 'roof', exhaust: 'dual' };
 
+// ---- expanded urban traffic & heavy commercial categories
+SPECS.suv = {
+  L: 4.85, W: 2.02, wr: 0.42, ww: 0.29, fa: 1.5, ra: -1.48, yb: 0.48,
+  noseBot: 0.5, noseTop: 1.05, noseDz: 0.16, hoodY: 1.18, cowlZ: 0.95,
+  roofY: 1.92, roofFZ: 0.35, roofRZ: -1.95, rwZ: -2.28, deckY: 1.2,
+  tailTop: 1.18, tailDz: 0.06, tailBot: 0.52, cabinW: 0.92, taper: 0.88,
+  rim: 'five', head: 'wide', tail: 'tall', roofRails: true, sideWinRear: -1.75, exhaust: 'dual',
+};
+SPECS.pickup = {
+  L: 5.2, W: 2.0, wr: 0.44, ww: 0.3, fa: 1.65, ra: -1.6, yb: 0.52,
+  noseBot: 0.54, noseTop: 1.12, noseDz: 0.12, hoodY: 1.24, cowlZ: 0.92,
+  roofY: 1.92, roofFZ: 0.45, roofRZ: -0.55, rwZ: -0.68, deckY: 1.26,
+  tailTop: 1.26, tailDz: 0.03, tailBot: 0.56, cabinW: 0.88, taper: 0.86,
+  rim: 'steel', head: 'square', tail: 'tall', bed: true, exhaust: 'single',
+};
+SPECS.delivery = {
+  L: 5.9, W: 2.18, wr: 0.42, ww: 0.28, fa: 2.05, ra: -1.75, yb: 0.44,
+  noseBot: 0.46, noseTop: 1.18, noseDz: 0.1, hoodY: 1.32, cowlZ: 2.25,
+  roofY: 2.68, roofFZ: 1.6, roofRZ: -2.8, rwZ: -2.9, deckY: 1.32,
+  tailTop: 1.3, tailDz: 0.02, tailBot: 0.48, cabinW: 0.96, taper: 0.95,
+  rim: 'steel', head: 'square', tail: 'tall', sideWinRear: 1.1, deliveryBox: true,
+};
+SPECS.bus = {
+  L: 9.6, W: 2.46, wr: 0.48, ww: 0.32, fa: 3.1, ra: -2.85, yb: 0.44,
+  noseBot: 0.46, noseTop: 1.25, noseDz: 0.08, hoodY: 1.35, cowlZ: 4.55,
+  roofY: 3.15, roofFZ: 4.25, roofRZ: -4.6, rwZ: -4.72, deckY: 1.35,
+  tailTop: 1.35, tailDz: 0.02, tailBot: 0.48, cabinW: 0.98, taper: 0.97,
+  rim: 'steel', head: 'wide', tail: 'tall', sideWinRear: -4.3, busDetails: true,
+};
+SPECS.cargo = {
+  L: 8.6, W: 2.38, wr: 0.5, ww: 0.34, fa: 2.9, ra: -2.55, yb: 0.56,
+  noseBot: 0.58, noseTop: 1.4, noseDz: 0.08, hoodY: 1.52, cowlZ: 3.25,
+  roofY: 2.65, roofFZ: 2.95, roofRZ: 1.45, rwZ: 1.32, deckY: 1.15,
+  tailTop: 1.12, tailDz: 0.02, tailBot: 0.62, cabinW: 0.92, taper: 0.94,
+  rim: 'steel', head: 'square', tail: 'tall', cargoBox: true, heavyCab: true,
+};
+SPECS.tanker = {
+  L: 9.2, W: 2.4, wr: 0.52, ww: 0.36, fa: 3.15, ra: -2.7, yb: 0.58,
+  noseBot: 0.6, noseTop: 1.46, noseDz: 0.08, hoodY: 1.58, cowlZ: 3.35,
+  roofY: 2.72, roofFZ: 3.0, roofRZ: 1.55, rwZ: 1.42, deckY: 1.12,
+  tailTop: 1.08, tailDz: 0.02, tailBot: 0.62, cabinW: 0.92, taper: 0.94,
+  rim: 'steel', head: 'square', tail: 'tall', fuelTanker: true, heavyCab: true,
+};
+
 // ---------------------------------------------------------------- geometry helpers
 
 function prep(geo, color = '#ffffff') {
@@ -495,6 +539,106 @@ function buildBody(modelId, livery) {
   if (s.taxiSign) {
     B.trim.push(prep(box(0.8, 0.06, 0.3, 0, s.roofY + 0.08, (s.roofFZ + s.roofRZ) / 2), '#111'));
     B.decal.push(prep(box(0.72, 0.2, 0.24, 0, s.roofY + 0.2, (s.roofFZ + s.roofRZ) / 2)));
+  }
+
+  // ---- SUV roof rails
+  if (s.roofRails) {
+    for (const sx of [-1, 1]) {
+      B.trim.push(prep(box(0.06, 0.07, 2.0, sx * (s.W * 0.38), s.roofY + 0.08, -0.8), '#23262b'));
+    }
+  }
+
+  // ---- City Passenger Bus details (roof AC pods, front destination header, side window mullions)
+  if (s.busDetails) {
+    B.trim.push(prep(box(1.5, 0.24, 1.8, 0, s.roofY + 0.14, 1.1), '#dfe3e8'));
+    B.trim.push(prep(box(1.5, 0.24, 1.8, 0, s.roofY + 0.14, -2.0), '#dfe3e8'));
+    // Illuminated amber destination board above windshield
+    B.head.push(prep(box(1.6, 0.22, 0.08, 0, s.roofY - 0.18, s.L / 2 - 0.08), '#ffae22'));
+    // Vertical window pillars along both sides so the bus looks authentic
+    for (const sx of [-1, 1]) {
+      for (let z = -3.8; z <= 3.6; z += 1.48) {
+        B.trim.push(prep(box(0.05, 1.25, 0.12, sx * (s.W / 2 - 0.02), 2.15, z), '#22262c'));
+      }
+      // Side rub rail
+      B.trim.push(prep(box(0.06, 0.12, s.L - 0.6, sx * (s.W / 2 + 0.01), 0.95, 0), '#1f2328'));
+    }
+  }
+
+  // ---- Heavy semi-tractor cab details (chrome exhaust stacks, sun visor, side fuel tanks, steps)
+  if (s.heavyCab) {
+    for (const sx of [-1, 1]) {
+      // Tall chrome vertical exhaust stacks behind cab
+      B.trim.push(prep(cyl(0.065, 0.075, 2.1, 10, sx * (s.W / 2 - 0.14), 2.05, 1.28), '#d6dade'));
+      // Side saddle diesel tanks & steps
+      B.trim.push(prep(cyl(0.24, 0.24, 1.2, 10, sx * (s.W / 2 - 0.22), 0.72, 1.9, 'z'), '#8d9299'));
+      // Side underrun guard bars along chassis
+      B.trim.push(prep(box(0.06, 0.12, 3.8, sx * (s.W / 2 - 0.06), 0.74, -0.7), '#c8ccd0'));
+    }
+    // Cab roof aerodynamic fairing / sun visor & amber clearance lamps
+    B.trim.push(prep(box(s.W * 0.86, 0.12, 0.28, 0, s.roofY - 0.04, s.roofFZ + 0.12), '#1b1d20'));
+    for (const sx of [-0.65, 0, 0.65]) {
+      B.head.push(prep(box(0.14, 0.06, 0.08, sx, s.roofY + 0.06, s.roofFZ - 0.05), '#ff9900'));
+    }
+    // Heavy steel chassis frame rails
+    for (const sx of [-0.46, 0.46]) {
+      B.trim.push(prep(box(0.16, 0.22, 5.4, sx, 0.96, -1.4), '#1f2226'));
+    }
+  }
+
+  // ---- Heavy Cargo Freight Box Truck superstructure
+  if (s.cargoBox) {
+    const bxLen = 5.45, bxH = 2.25, bxW = s.W - 0.04, bxZ = -1.52, bxY = 1.12 + bxH / 2;
+    // Main white/silver insulated freight box
+    B.paint2.push(prep(box(bxW, bxH, bxLen, 0, bxY, bxZ), '#eef1f5'));
+    // Corrugated vertical stiffening ribs & roof trim
+    B.trim.push(prep(box(bxW + 0.04, 0.09, bxLen + 0.04, 0, bxY + bxH / 2 - 0.02, bxZ), '#aeb4bc'));
+    B.trim.push(prep(box(bxW + 0.04, 0.12, bxLen + 0.04, 0, 1.14, bxZ), '#32363c'));
+    for (const sx of [-1, 1]) {
+      for (let z = bxZ - 2.3; z <= bxZ + 2.3; z += 0.92) {
+        B.trim.push(prep(box(0.04, bxH - 0.16, 0.06, sx * (bxW / 2 + 0.01), bxY, z), '#cfd4dc'));
+      }
+    }
+    // Rear steel roll-up door frame & DOT red/white bumper bar
+    B.trim.push(prep(box(bxW - 0.25, bxH - 0.25, 0.05, 0, bxY, bxZ - bxLen / 2 - 0.01), '#c2c7cf'));
+    B.trim.push(prep(box(bxW - 0.15, 0.14, 0.12, 0, 0.68, bxZ - bxLen / 2 - 0.06), '#d93829'));
+  }
+
+  // ---- Genuine Petroleum Fuel Tanker Truck superstructure
+  if (s.fuelTanker) {
+    const tR = 1.02, tLen = 5.2, tZ = -1.55, tY = 2.08;
+    // Brushed stainless-steel cylindrical petroleum tank + hemispherical end-domes
+    const tankCyl = cyl(tR, tR, tLen, 20, 0, tY, tZ, 'z');
+    B.paint2.push(prep(tankCyl, '#dde3ea'));
+    for (const end of [-1, 1]) {
+      const dome = new THREE.SphereGeometry(tR, 18, 10);
+      dome.scale(1, 1, 0.38);
+      dome.translate(0, tY, tZ + end * (tLen / 2));
+      B.paint2.push(prep(dome, '#d4dbe4'));
+    }
+    // 4 heavy steel mounting saddles bolting the tank onto the chassis frame
+    for (const z of [-3.5, -2.2, -0.9, 0.4]) {
+      B.trim.push(prep(box(1.55, 0.46, 0.24, 0, 1.18, z), '#2b2f35'));
+      // Circumferential reinforcement tank ring band
+      const band = new THREE.TorusGeometry(tR + 0.025, 0.032, 6, 20);
+      band.translate(0, tY, z);
+      B.trim.push(prep(band, '#8b929c'));
+    }
+    // Red/orange flammable hazard stripes along both sides + rear hazard diamond
+    for (const sx of [-1, 1]) {
+      B.trim.push(prep(box(0.06, 0.28, tLen * 0.88, sx * (tR + 0.01), tY, tZ), '#e63926'));
+      // Side discharge valve manifold box underneath the tank
+      B.trim.push(prep(box(0.28, 0.4, 0.9, sx * 0.82, 1.02, tZ - 0.4), '#30343a'));
+    }
+    // Top anti-slip safety catwalk, railing & 3 pressurized filler dome hatches
+    B.trim.push(prep(box(0.68, 0.05, tLen - 0.3, 0, tY + tR + 0.05, tZ), '#363b42'));
+    for (const z of [-3.1, -1.55, 0.0]) {
+      B.trim.push(prep(cyl(0.24, 0.26, 0.14, 12, 0, tY + tR + 0.12, z), '#9aa1aa'));
+    }
+    // Rear ladder & steel underride bumper guard
+    for (const sx of [-0.22, 0.22]) {
+      B.trim.push(prep(box(0.04, 1.85, 0.04, sx, 2.0, tZ - tLen / 2 - 0.42), '#adb4bd'));
+    }
+    B.trim.push(prep(box(s.W - 0.15, 0.16, 0.14, 0, 0.68, tZ - tLen / 2 - 0.38), '#d93829'));
   }
 
   // ---- classic details: chrome bumpers, tail fins, two-tone paint

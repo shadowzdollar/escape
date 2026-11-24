@@ -9,7 +9,7 @@ import { rc } from './city.js';
 import { clamp, wrapAngle } from './utils.js';
 
 const { RIVER_ROW, ROAD, N } = CITY;
-export const WATER_Y = -1.6;
+export const WATER_Y = -3.6;
 
 function hullGeometry(L, W, H) {
   // top-view hull outline with a pointed bow, extruded upward and tapered below
@@ -60,10 +60,10 @@ export function createBoat(kind = 'speed') {
   body.add(deck);
   let red = null, blue = null;
   if (felucca) {
-    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 7.5, 6), trim);
-    mast.position.set(0, 4.2, L * 0.12);
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 2.3, 6), trim);
+    mast.position.set(0, 1.5, L * 0.12);
     const sail = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(0, 0.8, L * 0.42), new THREE.Vector3(0, 8.6, -L * 0.25), new THREE.Vector3(0, 1.2, -L * 0.42),
+      new THREE.Vector3(0, 0.7, L * 0.4), new THREE.Vector3(0, 2.75, -L * 0.2), new THREE.Vector3(0, 0.9, -L * 0.4),
     ]), new THREE.MeshStandardMaterial({ color: 0xf4efe2, side: THREE.DoubleSide, roughness: 0.9 }));
     sail.geometry.computeVertexNormals();
     sail.position.x = 0.12;
@@ -74,8 +74,8 @@ export function createBoat(kind = 'speed') {
     house.position.set(0, 0.95, -L * 0.12);
     const band = new THREE.Mesh(new THREE.BoxGeometry(W - 0.66, 0.22, 1.74), glass);
     band.position.set(0, 1.12, -L * 0.12);
-    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 1.4, 6), dark);
-    mast.position.set(0, 1.9, -L * 0.2);
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 1.1, 6), dark);
+    mast.position.set(0, 1.75, -L * 0.2);
     body.add(house, band, mast);
     for (const sx of [-0.5, 0.5]) {
       const motor = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.0, 0.5), dark);
@@ -88,11 +88,15 @@ export function createBoat(kind = 'speed') {
     shield.rotation.x = -0.4;
     const console_ = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.5, 0.6), police ? paintMat : trim);
     console_.position.set(0, 0.8, -L * 0.05);
+    // Visible steering wheel on the boat console
+    const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.028, 6, 14), dark);
+    wheel.position.set(0, 1.02, -L * 0.05 - 0.32);
+    wheel.rotation.x = 0.38;
     const seat = new THREE.Mesh(new THREE.BoxGeometry(W - 0.5, 0.35, 0.6), dark);
     seat.position.set(0, 0.72, -L * 0.3);
     const motor = new THREE.Mesh(new THREE.BoxGeometry(0.55, 1.0, 0.5), dark);
     motor.position.set(0, 0.35, -L / 2 - 0.25);
-    body.add(shield, console_, seat, motor);
+    body.add(shield, console_, wheel, seat, motor);
     if (police) {
       const bar = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.08, 0.25), dark);
       bar.position.set(0, 1.3, -L * 0.05);
@@ -107,8 +111,9 @@ export function createBoat(kind = 'speed') {
   const shadow = new THREE.Object3D();
   const beam = new THREE.Object3D(); beam.visible = false;
   const tailMat = new THREE.MeshBasicMaterial({ color: 0xff2020 });
+  const seatPos = armed ? { x: 0, y: 0.72, z: -L * 0.16 } : felucca ? { x: 0, y: 0.6, z: -L * 0.34 } : { x: 0, y: 0.64, z: -L * 0.22 };
   return {
-    root, body, wheels: [], paintMat, tailMat, glowMat: null, red, blue, beam, shadow, pool: null,
+    root, body, wheels: [], paintMat, tailMat, glowMat: null, red, blue, beam, shadow, pool: null, seatPos,
     spec: { L, W, wr: 0.4, ww: 0.3, fa: 1.5, ra: -2, yb: 0, tailBot: 0.3, hoodY: 0.8, roofY: 1.2 },
     setColor() {},
     dispose() { paintMat.dispose(); trim.dispose(); dark.dispose(); glass.dispose(); tailMat.dispose(); red?.dispose(); blue?.dispose(); },
@@ -152,8 +157,54 @@ export class Boats {
     return v;
   }
 
+  // Mount a visible seated character rig inside a boat (player, police, or traffic skipper)
+  mountDriver(v, role = 'player') {
+    this.unmountDriver(v);
+    const humans = this.game.humans;
+    if (!humans?.ready) {
+      v.pendingDriverRole = role;
+      return;
+    }
+    v.pendingDriverRole = null;
+    const kind = role === 'police' ? 'swat' : role === 'player' ? 'hoodie' : 'casual';
+    const inst = humans.acquire(kind);
+    const fakePerson = {
+      outfit: role === 'player' ? 'dark' : undefined,
+      copFoot: role === 'police',
+      mode: 'sit',
+      variant: (v.id || 1) * 7,
+    };
+    humans.dress(inst, fakePerson);
+    // Hide gun/phone props while steering boat
+    if (inst.props.gun) inst.props.gun.visible = false;
+    if (inst.props.phone) inst.props.phone.visible = false;
+    const sp = v.car.seatPos || { x: 0, y: 0.64, z: -v.L * 0.22 };
+    inst.root.scale.setScalar(0.95);
+    inst.root.position.set(sp.x, sp.y - 0.62, sp.z);
+    inst.root.rotation.set(0, 0, 0, 'YXZ');
+    v.car.body.add(inst.root);
+    v.driverRig = inst;
+    v.driverRole = role;
+    humans.poseBoatDriver(inst, 0, 0, 0);
+  }
+
+  unmountDriver(v) {
+    v.pendingDriverRole = null;
+    if (v?.driverRig) {
+      v.driverRig.root.parent?.remove(v.driverRig.root);
+      this.game.humans.release(v.driverRig);
+      v.driverRig = null;
+      v.driverRole = null;
+    }
+  }
+
   reset() {
-    for (const v of this.list) { this.game.scene.remove(v.root); v.car.dispose(); this.game.vehicles.delete(v); }
+    for (const v of this.list) {
+      this.unmountDriver(v);
+      this.game.scene.remove(v.root);
+      v.car.dispose();
+      this.game.vehicles.delete(v);
+    }
     this.list = []; this.cops = [];
     this.copTimer = 4;
     this.mine = null;
@@ -186,30 +237,79 @@ export class Boats {
     const cruise = g.map.theme === 'egypt' ? 'felucca' : 'speed';
     for (let k = 0; k < 3; k++) {
       const x = (Math.random() - 0.5) * HALF * 1.6;
-      const lane = (this.z0 + this.z1) / 2 + (k % 2 ? 6 : -6);
+      // Cruise in the wide navigable channels north & south of the bridge center piers
+      const lane = (this.z0 + this.z1) / 2 + (k % 2 ? 12 : -12);
       const b = this.make(cruise, x, lane, k % 2 ? -Math.PI / 2 : Math.PI / 2, 'traffic');
       b.cruise = { lane, dir: k % 2 ? -1 : 1 };
       b.stats = { ...b.stats, speed: cruise === 'felucca' ? 5 : 11 };
+      this.mountDriver(b, 'traffic');
     }
   }
 
-  // keep boats inside the river channel (they pass under bridges)
+  // Keep boats inside the river channel AND collide physically against bridge center piers
+  // (boats pass cleanly beneath bridge decks through the north & south navigable arches).
   constrain(v) {
-    const zmin = this.z0 + 1.2, zmax = this.z1 - 1.2;
+    const zmin = this.z0 + 1.25, zmax = this.z1 - 1.25;
     if (v.z < zmin) { v.z = zmin; if (v.vz < 0) { const imp = -v.vz; v.vz = imp * 0.3; if (imp > 6) this.game.onStaticHit({ type: 'wall', v, impact: imp, x: v.x, z: zmin - 0.5, nx: 0, nz: 1 }); } }
     if (v.z > zmax) { v.z = zmax; if (v.vz > 0) { const imp = v.vz; v.vz = -imp * 0.3; if (imp > 6) this.game.onStaticHit({ type: 'wall', v, impact: imp, x: v.x, z: zmax + 0.5, nx: 0, nz: -1 }); } }
     const lim = CITY.HALF + 150;
     if (Math.abs(v.x) > lim) { v.x = Math.sign(v.x) * lim; v.vx *= -0.3; }
+
+    // Physical collision against bridge center piers (3-circle hull test with smooth sliding)
+    const piers = this.game.city?.bridgePiers;
+    if (piers?.length) {
+      const r = v.circleR;
+      const pts = [{ x: 0, z: 0 }, { x: 0, z: 0 }, { x: 0, z: 0 }];
+      v.circles(pts);
+      for (const o of piers) {
+        for (let k = 0; k < 3; k++) {
+          const c = pts[k];
+          const px = clamp(c.x, o.x0, o.x1);
+          const pz = clamp(c.z, o.z0, o.z1);
+          const dx = c.x - px, dz = c.z - pz;
+          const d2 = dx * dx + dz * dz;
+          if (d2 >= r * r) continue;
+          let nx, nz, pen;
+          if (d2 < 1e-8) {
+            const dl = c.x - o.x0, dr = o.x1 - c.x, dt = c.z - o.z0, db = o.z1 - c.z;
+            const m = Math.min(dl, dr, dt, db);
+            if (m === dl) { nx = -1; nz = 0; pen = dl + r; }
+            else if (m === dr) { nx = 1; nz = 0; pen = dr + r; }
+            else if (m === dt) { nx = 0; nz = -1; pen = dt + r; }
+            else { nx = 0; nz = 1; pen = db + r; }
+          } else {
+            const d = Math.sqrt(d2);
+            nx = dx / d; nz = dz / d; pen = r - d;
+          }
+          v.x += nx * pen; v.z += nz * pen;
+          c.x += nx * pen; c.z += nz * pen;
+          const vn = v.vx * nx + v.vz * nz;
+          if (vn < 0) {
+            const e = 0.3;
+            v.vx -= (1 + e) * vn * nx;
+            v.vz -= (1 + e) * vn * nz;
+            if (-vn > 5) this.game.onStaticHit({ type: 'wall', v, impact: -vn, x: px, z: pz, nx, nz });
+          }
+        }
+      }
+    }
   }
 
   update(dt) {
     const g = this.game, p = g.player;
+    const zMid = (this.z0 + this.z1) / 2;
     for (const v of this.list) {
+      // Mount driver once humans GLBs finish loading
+      if (v.pendingDriverRole && g.humans?.ready) this.mountDriver(v, v.pendingDriverRole);
+      // Animate seated boat driver (steering lean, wheel grip, wake bob)
+      if (v.driverRig && g.humans?.ready) {
+        g.humans.poseBoatDriver(v.driverRig, v.steer || 0, v.speed || 0, g.time);
+      }
       if (v === g.car) continue;
       const inp = v.input;
       if (v.kind === 'empty' || !v.alive) { inp.throttle = 0; inp.brake = 0; inp.steer = 0; inp.hold = true; continue; }
       if (v.cruise) {
-        // traffic: follow the lane, turn around at the city edges
+        // traffic: follow the navigable arch channel, turn around at the city edges
         const c = v.cruise;
         if (Math.abs(v.x) > CITY.HALF + 60 && Math.sign(v.x) === c.dir) c.dir = -c.dir;
         const want = c.dir > 0 ? Math.PI / 2 : -Math.PI / 2;
@@ -218,8 +318,11 @@ export class Boats {
         inp.steer = clamp(-err * 2, -1, 1);
         inp.throttle = 0.6; inp.brake = 0;
       } else if (v.kind === 'police') {
-        // chase: aim ahead of the player's boat
-        const tx = p.x + p.vx * 0.6, tz = p.z + p.vz * 0.6;
+        // chase: aim ahead of the player's boat, steering around bridge center piers
+        let tx = p.x + p.vx * 0.6, tz = p.z + p.vz * 0.6;
+        if (Math.abs(tz - zMid) < 4.5 && this.underBridge(v.x + Math.sin(v.heading) * 18)) {
+          tz = v.z >= zMid ? zMid + 10 : zMid - 10;
+        }
         const err = wrapAngle(Math.atan2(tx - v.x, tz - v.z) - v.heading);
         inp.steer = clamp(-err * 2.2, -1, 1);
         inp.throttle = Math.abs(err) > 1.4 ? 0.3 : 1; inp.brake = 0;
@@ -235,23 +338,26 @@ export class Boats {
         this.copTimer = 6;
         const side = Math.random() < 0.5 ? -1 : 1;
         const x = clamp(p.x + side * (110 + Math.random() * 60), -CITY.HALF - 100, CITY.HALF + 100);
-        const c = this.make('police', x, (this.z0 + this.z1) / 2, side > 0 ? -Math.PI / 2 : Math.PI / 2, 'police');
+        const lane = zMid + (p.z >= zMid ? 10 : -10);
+        const c = this.make('police', x, lane, side > 0 ? -Math.PI / 2 : Math.PI / 2, 'police');
         c.copType = 'boat';
+        this.mountDriver(c, 'police');
         this.cops.push(c);
         if (!this.announced) { this.announced = true; g.ui.toast('POLICE BOATS!', 'bad'); }
       }
     }
-    // wakes
+    // wakes on the water surface
     for (const v of this.list) {
       if (v.speed > 4 && Math.random() < 0.7) {
         const s = Math.sin(v.heading), c = Math.cos(v.heading);
-        g.effects.splash(v.x - s * v.L * 0.5 + (Math.random() - 0.5) * 1.2, v.z - c * v.L * 0.5);
+        g.effects.splash(v.x - s * v.L * 0.5 + (Math.random() - 0.5) * 1.2, v.z - c * v.L * 0.5, WATER_Y + 0.1);
       }
     }
     // tidy: far police boats / wrecks
     for (let i = this.cops.length - 1; i >= 0; i--) {
       const c = this.cops[i];
       if (Math.hypot(c.x - p.x, c.z - p.z) > 400) {
+        this.unmountDriver(c);
         g.scene.remove(c.root); c.car.dispose(); g.vehicles.delete(c);
         this.list.splice(this.list.indexOf(c), 1); this.cops.splice(i, 1);
       }

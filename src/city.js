@@ -334,7 +334,7 @@ export class City {
   pointBlocked(x, z, pad = 0) {
     let hit = false;
     this.query(x, z, pad + 1, (o) => {
-      if (hit || o.type !== 'box') return;
+      if (hit || o.type !== 'box' || o.kind === 'bridgePier') return;
       if (x > o.x0 - pad && x < o.x1 + pad && z > o.z0 - pad && z < o.z1 + pad) hit = true;
     });
     return hit;
@@ -538,7 +538,7 @@ export class City {
     // parked cars (instanced, chunked) + traffic lights
     const pmat = new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.35, vertexColors: true });
     const rmat = new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.3, vertexColors: true });
-    this.parkedModels = ['hatch', 'sedan', 'sedan', 'van', 'buggle', 'taxi'];
+    this.parkedModels = ['hatch', 'sedan', 'sedan', 'suv', 'pickup', 'van', 'buggle', 'taxi'];
     for (const m of new Set(this.parkedModels)) {
       const g = staticCarGeometry(m);
       addPropType('pc_' + m, g.paint, pmat, { colors: true, cast: false });
@@ -1567,7 +1567,8 @@ export class City {
   buildRiver() {
     const T = this.theme;
     const z0 = rc(RIVER_ROW) + RH, z1 = rc(RIVER_ROW + 1) - RH;
-    const WY = -1.6;
+    const WY = -3.6;
+    this.bridgePiers = [];
     // water plane
     const wg = new THREE.PlaneGeometry(4000, z1 - z0);
     wg.rotateX(-Math.PI / 2);
@@ -1587,9 +1588,9 @@ export class City {
     for (let k = 0; k < xs.length; k += 2) {
       const a = xs[k], bx = xs[k + 1];
       if (bx - a < 0.5) continue;
-      // bank walls
-      c.quad([a, WY - 1, z0], [bx, WY - 1, z0], [bx, 0.02, z0], [a, 0.02, z0], [0, 0, 1], [[0, 0], [1, 0], [1, 1], [0, 1]], wallC);
-      c.quad([bx, WY - 1, z1], [a, WY - 1, z1], [a, 0.02, z1], [bx, 0.02, z1], [0, 0, -1], [[0, 0], [1, 0], [1, 1], [0, 1]], wallC);
+      // deep canal retaining walls from river bed up to street level
+      c.quad([a, WY - 1.4, z0], [bx, WY - 1.4, z0], [bx, 0.02, z0], [a, 0.02, z0], [0, 0, 1], [[0, 0], [1, 0], [1, 1], [0, 1]], wallC);
+      c.quad([bx, WY - 1.4, z1], [a, WY - 1.4, z1], [a, 0.02, z1], [bx, 0.02, z1], [0, 0, -1], [[0, 0], [1, 0], [1, 1], [0, 1]], wallC);
       // railings (jersey barriers) along the banks
       const ca = Math.max(a, -HALF), cb = Math.min(bx, HALF);
       for (let x = ca + 1.5; x < cb - 1.4; x += 3.05) {
@@ -1598,14 +1599,27 @@ export class City {
       }
       if (cb > ca) this.addBox(ca, cb, z0 - 0.7, z1 + 0.7, 'river', 1);
     }
-    // bridge decks: side faces, railings, piers
+    // bridge decks: clean 3.0m vertical clearance (y=-3.6 water to y=-0.6 deck underside),
+    // structural railings, and physical center piers with water-channel colliders.
+    const deckBottom = -0.6;
+    const zMid = (z0 + z1) / 2;
     for (const i of bridges) {
       const x0 = rc(i) - RH, x1 = rc(i) + RH;
-      c.quad([x0, -1.0, z0], [x0, -1.0, z1], [x0, 0.01, z1], [x0, 0.01, z0], [-1, 0, 0], [[0, 0], [1, 0], [1, 1], [0, 1]], col('#b5b2ab'));
-      c.quad([x1, -1.0, z1], [x1, -1.0, z0], [x1, 0.01, z0], [x1, 0.01, z1], [1, 0, 0], [[0, 0], [1, 0], [1, 1], [0, 1]], col('#b5b2ab'));
+      // thin girder side faces + dark underside ceiling so bridges look hollow underneath
+      c.quad([x0, deckBottom, z0], [x0, deckBottom, z1], [x0, 0.01, z1], [x0, 0.01, z0], [-1, 0, 0], [[0, 0], [1, 0], [1, 1], [0, 1]], col('#b5b2ab'));
+      c.quad([x1, deckBottom, z1], [x1, deckBottom, z0], [x1, 0.01, z0], [x1, 0.01, z1], [1, 0, 0], [[0, 0], [1, 0], [1, 1], [0, 1]], col('#b5b2ab'));
+      c.quad([x0, deckBottom, z0], [x1, deckBottom, z0], [x1, deckBottom, z1], [x0, deckBottom, z1], [0, -1, 0], [[0, 0], [1, 0], [1, 1], [0, 1]], col('#595754'));
+      // bridge railings
       pbox(c, x0 - 0.1, x0 + 0.4, 0, 1.1, z0, z1, col('#d4d0c8'));
       pbox(c, x1 - 0.4, x1 + 0.1, 0, 1.1, z0, z1, col('#d4d0c8'));
-      pbox(c, x0 + 2, x1 - 2, WY - 1, -1.0, (z0 + z1) / 2 - 1.5, (z0 + z1) / 2 + 1.5, col('#8f8c86'));
+      // twin streamlined bridge center piers (leaves two wide ~26m navigable channels north & south)
+      const px0 = x0 + 2.2, px1 = x1 - 2.2, pz0 = zMid - 1.8, pz1 = zMid + 1.8;
+      pbox(c, px0, px1, WY - 1.4, deckBottom, pz0, pz1, col('#8a8780'));
+      // pier cap beam
+      pbox(c, x0 + 0.8, x1 - 0.8, deckBottom - 0.45, deckBottom, pz0 - 0.5, pz1 + 0.5, col('#78756e'));
+      // register physical pier collider for boats & swimmers
+      const pier = this.addBox(px0, px1, pz0, pz1, 'bridgePier', 4);
+      this.bridgePiers.push(pier);
       // lamp posts on bridges
       for (const z of [z0 + 10, z1 - 10]) {
         this.prop('lampPole', x0 + 0.2, 1.1 - 0.15, z, -Math.PI / 2);

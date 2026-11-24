@@ -7,18 +7,41 @@ const LANE = 4.0;
 const { CELL } = CITY;
 
 const TRAFFIC_STATS = {
-  hatch: { speed: 22, accel: 12, handling: 2.2, grip: 8, hp: 60, mass: 0.9 },
-  sedan: { speed: 22, accel: 12, handling: 2.2, grip: 8, hp: 70, mass: 1.0 },
-  taxi: { speed: 24, accel: 13, handling: 2.2, grip: 8, hp: 70, mass: 1.0 },
-  van: { speed: 19, accel: 10, handling: 2.0, grip: 8, hp: 100, mass: 1.5 },
-  truck: { speed: 21, accel: 11, handling: 2.0, grip: 8, hp: 110, mass: 1.7 },
+  hatch:    { speed: 22, accel: 13, handling: 2.3, grip: 8.0, hp: 65,  mass: 0.95, cruise: 13.5, gap: 6.5 },
+  sedan:    { speed: 24, accel: 13, handling: 2.2, grip: 8.0, hp: 75,  mass: 1.1,  cruise: 14.5, gap: 7.0 },
+  suv:      { speed: 24, accel: 12, handling: 2.0, grip: 7.6, hp: 115, mass: 1.65, cruise: 14.0, gap: 7.5 },
+  taxi:     { speed: 26, accel: 14, handling: 2.3, grip: 8.2, hp: 75,  mass: 1.1,  cruise: 16.5, gap: 6.5 },
+  sports:   { speed: 32, accel: 18, handling: 2.6, grip: 8.6, hp: 85,  mass: 1.15, cruise: 18.5, gap: 7.0 },
+  muscle:   { speed: 30, accel: 17, handling: 2.3, grip: 7.0, hp: 110, mass: 1.45, cruise: 17.0, gap: 7.5 },
+  super:    { speed: 36, accel: 22, handling: 2.8, grip: 9.0, hp: 90,  mass: 1.25, cruise: 20.5, gap: 7.5 },
+  pickup:   { speed: 23, accel: 12, handling: 2.0, grip: 7.6, hp: 120, mass: 1.75, cruise: 13.5, gap: 8.0 },
+  van:      { speed: 20, accel: 10, handling: 1.9, grip: 7.8, hp: 115, mass: 1.7,  cruise: 12.0, gap: 8.0 },
+  delivery: { speed: 19, accel: 9,  handling: 1.8, grip: 7.5, hp: 135, mass: 2.2,  cruise: 11.5, gap: 9.0 },
+  truck:    { speed: 22, accel: 11, handling: 1.9, grip: 7.6, hp: 130, mass: 1.9,  cruise: 12.5, gap: 8.5 },
+  bus:      { speed: 17, accel: 7.5,handling: 1.5, grip: 7.4, hp: 220, mass: 4.0,  cruise: 10.0, gap: 12.0 },
+  cargo:    { speed: 18, accel: 8,  handling: 1.55,grip: 7.4, hp: 210, mass: 3.8,  cruise: 10.5, gap: 11.5 },
+  tanker:   { speed: 17, accel: 7.5,handling: 1.45,grip: 7.2, hp: 180, mass: 4.2,  cruise: 10.0, gap: 12.5, explosive: true },
 };
+
+// Weighted urban traffic mix (common sedans/SUVs/hatchbacks, realistic buses/trucks/tankers, rare sports/supercars)
+const TRAFFIC_WEIGHTS = [
+  ['sedan', 20], ['hatch', 16], ['suv', 16], ['taxi', 10], ['pickup', 9],
+  ['van', 8], ['delivery', 6], ['sports', 5], ['muscle', 4],
+  ['bus', 4], ['cargo', 5], ['tanker', 3], ['super', 2],
+];
+function pickTrafficModel() {
+  let total = 0;
+  for (const [, w] of TRAFFIC_WEIGHTS) total += w;
+  let r = Math.random() * total;
+  for (const [m, w] of TRAFFIC_WEIGHTS) { r -= w; if (r <= 0) return m; }
+  return 'sedan';
+}
 
 export class Traffic {
   constructor(game) {
     this.game = game;
     this.cars = [];
-    this.target = 26;
+    this.target = 34;
     this.timer = 0;
   }
 
@@ -47,12 +70,19 @@ export class Traffic {
     if (to === from || !city.adj[from].includes(to)) return;
     const rx = -dz, rz = dx;
     const x = spot.x + rx * LANE, z = spot.z + rz * LANE;
-    for (const v of g.vehicles) if (Math.hypot(v.x - x, v.z - z) < 9) return;
-    const model = pick(Math.random, TRAFFIC_MODELS);
-    const color = model === 'taxi' ? '#ffc300' : pick(Math.random, TRAFFIC_COLORS);
-    const v = new Vehicle({ model, stats: TRAFFIC_STATS[model], color, kind: 'traffic' });
+    for (const v of g.vehicles) if (Math.hypot(v.x - x, v.z - z) < 13) return;
+    const model = pickTrafficModel();
+    const st = TRAFFIC_STATS[model] || TRAFFIC_STATS.sedan;
+    const color = model === 'taxi' ? '#ffc300'
+      : model === 'bus' ? pick(Math.random, ['#1d4ed8', '#d97706', '#15803d', '#b91c1c'])
+      : model === 'delivery' ? pick(Math.random, ['#f1f5f9', '#1e3a8a', '#b45309', '#f8fafc'])
+      : model === 'tanker' ? pick(Math.random, ['#b91c1c', '#1d4ed8', '#334155', '#d97706'])
+      : model === 'cargo' ? pick(Math.random, ['#334155', '#1e40af', '#991b1b', '#3f6212'])
+      : pick(Math.random, TRAFFIC_COLORS);
+    const v = new Vehicle({ model, stats: st, color, kind: 'traffic' });
+    if (st.explosive) v.explosive = true;
     v.place(x, z, spot.heading);
-    v.ai = { from, to, next: -1, cruise: 12 + Math.random() * 5, crashed: 0 };
+    v.ai = { from, to, next: -1, cruise: (st.cruise || 13) * (0.88 + Math.random() * 0.24), gap: st.gap || 7, crashed: 0 };
     const sp = v.ai.cruise * 0.8;
     v.vx = Math.sin(spot.heading) * sp; v.vz = Math.cos(spot.heading) * sp;
     v.car.beam.visible = g.isNight;
@@ -100,17 +130,24 @@ export class Traffic {
     const desired = Math.atan2(tx - v.x, tz - v.z);
     const err = wrapAngle(desired - v.heading);
     inp.steer = clamp(-err * 2.2, -1, 1);
-    let want = turning && s > CELL - 30 ? 8 : ai.cruise;
-    // follow: slow for anything in front of us
+    const isHeavy = v.L > 6.5;
+    let want = turning && s > CELL - 30 ? (isHeavy ? 6.2 : 8.2) : ai.cruise;
+    // Yield/slow slightly when police with active sirens approach nearby
     const fx = Math.sin(v.heading), fz = Math.cos(v.heading);
+    const lookAhead = isHeavy ? 22 : 17;
+    const baseGap = ai.gap || 7;
     for (const o of g.vehicles) {
-      if (o === v) continue;
+      if (o === v || o.boat) continue;
       const ox = o.x - v.x, oz = o.z - v.z;
       const ahead = ox * fx + oz * fz;
-      if (ahead <= 0 || ahead > 16) continue;
       const side = Math.abs(ox * fz - oz * fx);
-      if (side > 2.6) continue;
-      want = Math.min(want, Math.max(0, (ahead - 6) * 1.2));
+      if (o.kind === 'police' && o.speed > 10 && ahead > -12 && ahead < 26 && side < 8) {
+        want = Math.min(want, ai.cruise * 0.45);
+      }
+      if (ahead <= 0 || ahead > lookAhead) continue;
+      if (side > (v.W + o.W) * 0.55 + 0.5) continue;
+      const minDist = baseGap + (o.L || 4.5) * 0.45;
+      want = Math.min(want, Math.max(0, (ahead - minDist) * 1.15));
     }
     // stop for pedestrians on the road ahead
     for (const p of g.people.list) {

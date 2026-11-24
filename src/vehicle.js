@@ -184,6 +184,7 @@ export function collideStatic(v, city, onHit) {
     city.query(c.x, c.z, r + 0.5, (o) => {
       let nx, nz, pen, px, pz;
       if (o.type === 'box') {
+        if (o.kind === 'bridgePier') return; // underwater piers only affect boats & swimmers
         px = clamp(c.x, o.x0, o.x1); pz = clamp(c.z, o.z0, o.z1);
         let dx = c.x - px, dz = c.z - pz;
         const d2 = dx * dx + dz * dz;

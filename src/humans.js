@@ -20,6 +20,74 @@ const MODEL_HEIGHT = 1.825;
 const WALK_REF = 1.35; // m/s at timeScale 1 (tuned so feet don't slide)
 const RUN_REF = 4.6;
 
+// Sculpted canvas bank duffel / cash sack (replaces the old balloon sphere).
+export function createMoneyBagMesh(scale = 1) {
+  const grp = new THREE.Group();
+  const canvasTex = (() => {
+    const cv = document.createElement('canvas');
+    cv.width = 128; cv.height = 128;
+    const ctx = cv.getContext('2d');
+    ctx.fillStyle = '#c8b48a';
+    ctx.fillRect(0, 0, 128, 128);
+    // woven burlap/canvas grain
+    ctx.fillStyle = 'rgba(90,72,42,0.14)';
+    for (let y = 0; y < 128; y += 4) ctx.fillRect(0, y, 128, 1);
+    for (let x = 0; x < 128; x += 4) ctx.fillRect(x, 0, 1, 128);
+    // bold green bank "$" emblem
+    ctx.fillStyle = '#1f5e32';
+    ctx.font = 'bold 74px Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('$', 64, 68);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  })();
+
+  const bagMat = new THREE.MeshStandardMaterial({ map: canvasTex, roughness: 0.92, metalness: 0.02 });
+  const strapMat = new THREE.MeshStandardMaterial({ color: 0x3b2a1a, roughness: 0.85 });
+  const trimMat = new THREE.MeshStandardMaterial({ color: 0x262626, roughness: 0.7 });
+
+  // Heavy duffel / weighted canvas body (wider, flatter bottom, slight belly sag)
+  const bodyGeo = new THREE.BoxGeometry(0.42, 0.28, 0.24, 4, 4, 4);
+  const pos = bodyGeo.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    let x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    // Round edges into a stuffed fabric duffel with weight sagging toward bottom
+    const ny = y / 0.14; // -1 bottom .. +1 top
+    const taperTop = ny > 0 ? 1 - ny * 0.22 : 1 + Math.abs(ny) * 0.06;
+    const bulge = 1 + (1 - Math.min(1, (x / 0.21) ** 2)) * 0.14;
+    x *= taperTop;
+    z *= taperTop * bulge;
+    // Slight crease folds along the sides
+    z += Math.sin(x * 18) * 0.008;
+    pos.setXYZ(i, x, y - 0.14, z);
+  }
+  bodyGeo.computeVertexNormals();
+  const body = new THREE.Mesh(bodyGeo, bagMat);
+  body.castShadow = true;
+
+  // Leather reinforcement straps around the duffel
+  for (const sx of [-0.11, 0.11]) {
+    const strap = new THREE.Mesh(new THREE.BoxGeometry(0.032, 0.29, 0.255), strapMat);
+    strap.position.set(sx, -0.14, 0);
+    grp.add(strap);
+  }
+  // Top zipper / folded seam ridge
+  const seam = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.035, 0.045), trimMat);
+  seam.position.set(0, 0.005, 0);
+  // Carry handles (arched straps for the robber's hand)
+  const handleGeo = new THREE.TorusGeometry(0.075, 0.014, 6, 12, Math.PI);
+  for (const sz of [-0.045, 0.045]) {
+    const h = new THREE.Mesh(handleGeo, strapMat);
+    h.position.set(0, 0.01, sz);
+    grp.add(h);
+  }
+  grp.add(body, seam);
+  grp.scale.setScalar(scale);
+  return grp;
+}
+
 export class Humans {
   constructor(game) {
     this.game = game;
@@ -34,12 +102,10 @@ export class Humans {
     this.propMats = {
       phone: new THREE.MeshStandardMaterial({ color: 0x111418, roughness: 0.3, metalness: 0.6 }),
       gun: new THREE.MeshStandardMaterial({ color: 0x1d1f1b, roughness: 0.5, metalness: 0.6 }),
-      bag: new THREE.MeshStandardMaterial({ color: 0x6b7f3a, roughness: 0.9 }),
     };
     this.propGeo = {
       phone: new THREE.BoxGeometry(0.07, 0.13, 0.012),
       gun: (() => { const g = new THREE.BoxGeometry(0.06, 0.1, 0.75); g.translate(0, 0, 0.2); return g; })(),
-      bag: new THREE.IcosahedronGeometry(0.2, 1).scale(1, 1.15, 0.9),
     };
     this.tmpV = new THREE.Vector3();
     this.variants = {};
@@ -257,8 +323,10 @@ export class Humans {
     // props on the hands
     if (p.bags) {
       for (const [side, bone] of [['bagL', 'WristL'], ['bagR', 'WristR']]) {
-        const m = new THREE.Mesh(this.propGeo.bag, this.propMats.bag);
-        this.attach(inst, bone, m, 0, 0.22, 0);
+        const m = createMoneyBagMesh(0.78);
+        // Flip 180° around X so handles sit in the hand and heavy duffel hangs downward
+        m.rotation.set(Math.PI, Math.PI / 2, 0);
+        this.attach(inst, bone, m, 0, 0.14, 0.02);
         inst.props[side] = m;
       }
     }
@@ -322,7 +390,7 @@ export class Humans {
     if (p.dead && p.mode === 'down') return p.hitT < 0.3 ? 'HitRecieve' : 'Death';
     // armed characters (player on foot, police officers)
     if ((p.combatPose || p.copFoot) && p.mode !== 'down' && p.mode !== 'getup') {
-      if (p.swim) return (p.swimBlend || 0) > 0.5 ? 'Run' : 'Walk';
+      if (p.swim) return (p.swimBlend || 0) > 0.3 ? 'Run' : 'Idle_Neutral';
       if (p.arresting) return 'Punch_Right';
       if (p.speed > 1.0) return p.firing ? 'Run_Shoot' : (p.speed > 2.3 ? 'Run' : 'Walk');
       if (p.firing) return 'Idle_Gun_Shoot';
@@ -388,19 +456,73 @@ export class Humans {
     // placement: the physics body position; the clip itself animates falling
     inst.root.position.set(p.x, p.y, p.z);
     if (p.swim) {
-      // front crawl: body tips forward to horizontal and rises to the surface
+      // Authentic freestyle front crawl & treading-water bone animation
       const k = p.swimBlend || 0;
-      inst.root.rotation.set(k * 1.38, p.heading, Math.sin(this.game.time * 5.5) * 0.12 * k, 'YXZ');
-      inst.root.position.y = p.y + k * 1.1 + Math.sin(this.game.time * 3) * 0.04;
-    } else inst.root.rotation.set(0, p.heading, 0, 'YXZ');
+      const ph = p.swimPhase || this.game.time * 4;
+      const roll = Math.sin(ph) * 0.24 * k;
+      inst.root.rotation.set(k * 1.42, p.heading, roll, 'YXZ');
+      inst.root.position.y = p.y + k * 1.05 + Math.sin(this.game.time * 3.0) * 0.04;
+      this.applySwimBones(inst, ph, k);
+    } else {
+      inst.root.rotation.set(0, p.heading, 0, 'YXZ');
+    }
     // head turns toward whatever the person is looking at
     const head = inst.bones.Head;
-    if (head && p.look && p.mode !== 'down' && p.mode !== 'getup') {
+    if (head && p.look && p.mode !== 'down' && p.mode !== 'getup' && !p.swim) {
       const yaw = clamp(wrapAngle(Math.atan2(p.look.x - p.x, p.look.z - p.z) - p.heading), -1.1, 1.1);
       p.headYawS = (p.headYawS || 0) + (yaw - (p.headYawS || 0)) * Math.min(1, dt * 6);
     } else if (p.headYawS) p.headYawS *= Math.max(0, 1 - dt * 4);
     if (head && p.headYawS) head.rotateY(p.headYawS);
     if (inst.props.phone) inst.props.phone.visible = !!(p.phoneOut || p.film) && p.mode !== 'down';
+    if (inst.props.gun) inst.props.gun.visible = !p.swim && (p.mode === 'guard' || p.soldier || p.armed || p.copFoot);
+  }
+
+  // Bone lookup tolerant of dot-stripped or dot-preserved GLTF names
+  bone(inst, name) {
+    return inst.bones[name] || inst.bones[name.replace(/([LR])$/, '.$1')];
+  }
+
+  // Procedural front-crawl & treading-water upper-body strokes on top of mixer leg kick
+  applySwimBones(inst, ph, blend) {
+    const uArmL = this.bone(inst, 'UpperArmL'), uArmR = this.bone(inst, 'UpperArmR');
+    const lArmL = this.bone(inst, 'LowerArmL'), lArmR = this.bone(inst, 'LowerArmR');
+    const head = this.bone(inst, 'Head');
+
+    if (blend > 0.15) {
+      // Freestyle front crawl: alternating overhead arm reach & pull; mixer drives clean anatomical leg kick
+      const sL = Math.sin(ph), cL = Math.cos(ph);
+      const sR = Math.sin(ph + Math.PI), cR = Math.cos(ph + Math.PI);
+      if (uArmL) { uArmL.rotateX((-1.35 + sL * 1.1) * blend); uArmL.rotateZ((0.15 + Math.max(0, cL) * 0.22) * blend); }
+      if (uArmR) { uArmR.rotateX((-1.35 + sR * 1.1) * blend); uArmR.rotateZ((-0.15 - Math.max(0, cR) * 0.22) * blend); }
+      if (lArmL) lArmL.rotateX((0.2 + Math.max(0, -cL) * 0.55) * blend);
+      if (lArmR) lArmR.rotateX((0.2 + Math.max(0, -cR) * 0.55) * blend);
+      if (head) { head.rotateX(-0.72 * blend); head.rotateY(Math.sin(ph) * 0.2 * blend); }
+    } else {
+      // Upright treading water: gentle sculling arms
+      const scull = Math.sin(ph * 1.3);
+      if (uArmL) { uArmL.rotateX(-0.35 + scull * 0.22); uArmL.rotateZ(0.45 + Math.cos(ph * 1.3) * 0.2); }
+      if (uArmR) { uArmR.rotateX(-0.35 - scull * 0.22); uArmR.rotateZ(-0.45 - Math.cos(ph * 1.3) * 0.2); }
+      if (lArmL) lArmL.rotateX(-0.45);
+      if (lArmR) lArmR.rotateX(-0.45);
+    }
+  }
+
+  // Boat helm driving pose: upright bolster stance inside cockpit, both hands gripping steering wheel
+  poseBoatDriver(inst, steer = 0, speed = 0, time = 0) {
+    this.play(inst, 'Idle_Neutral', 0);
+    inst.mixer.update(0.016);
+    const torso = this.bone(inst, 'Torso') || this.bone(inst, 'Chest');
+    const head = this.bone(inst, 'Head');
+    const uArmL = this.bone(inst, 'UpperArmL'), uArmR = this.bone(inst, 'UpperArmR');
+    const lArmL = this.bone(inst, 'LowerArmL'), lArmR = this.bone(inst, 'LowerArmR');
+    const bounce = Math.sin(time * 7) * Math.min(0.035, speed * 0.002);
+    if (torso) { torso.rotateX(0.12 + bounce); torso.rotateZ(-steer * 0.14); }
+    if (head) { head.rotateX(-0.08); head.rotateY(-steer * 0.25); }
+    // Both arms reach cleanly forward onto the steering wheel
+    if (uArmL) { uArmL.rotateX(-1.05 - steer * 0.15); uArmL.rotateZ(-0.18); }
+    if (uArmR) { uArmR.rotateX(-1.05 + steer * 0.15); uArmR.rotateZ(0.18); }
+    if (lArmL) lArmL.rotateX(-0.32);
+    if (lArmR) lArmR.rotateX(-0.32);
   }
 
   releaseAll() {

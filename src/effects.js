@@ -286,11 +286,11 @@ export class Effects {
       this.smokeP.spawn(x, y, z, (Math.random() - 0.5) * 3, Math.random() * 2, (Math.random() - 0.5) * 3, 0.4, 0.4, 0.4, 1, 1.2, { grow: 3, drag: 2, alpha: 0.4 });
     }
   }
-  splash(x, z) {
+  splash(x, z, y = 0.8) {
     for (let i = 0; i < 6; i++) {
-      this.smokeP.spawn(x + (Math.random() - 0.5) * 0.3, 0.8, z + (Math.random() - 0.5) * 0.3,
-        (Math.random() - 0.5) * 2.5, 7 + Math.random() * 4, (Math.random() - 0.5) * 2.5,
-        0.75, 0.88, 1.0, 0.45, 1.3, { gravity: 14, alpha: 0.8, grow: 0.5 });
+      this.smokeP.spawn(x + (Math.random() - 0.5) * 0.3, y, z + (Math.random() - 0.5) * 0.3,
+        (Math.random() - 0.5) * 2.5, (y < 0 ? 3.5 : 7) + Math.random() * 3.5, (Math.random() - 0.5) * 2.5,
+        0.75, 0.88, 1.0, 0.45, 1.1, { gravity: 14, alpha: 0.78, grow: 0.45 });
     }
   }
   empWave(x, z) {

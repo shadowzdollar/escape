@@ -3,6 +3,7 @@
 // trophies (achievements) that persist across all modes.
 import * as THREE from 'three';
 import { WANTED } from './config.js';
+import { createMoneyBagMesh } from './humans.js';
 
 export const MISSIONS = [
   {
@@ -38,19 +39,19 @@ export const MISSIONS = [
 ];
 
 export const TROPHIES = [
-  { id: 'first_wreck', name: 'First Blood', desc: 'Wreck a police car' },
-  { id: 'wrecker', name: 'Scrap Dealer', desc: 'Wreck 50 police cars in total' },
-  { id: 'survivor', name: 'Survivor', desc: 'Survive 3 minutes in one run' },
-  { id: 'marathon', name: 'Marathon', desc: 'Survive 6 minutes in one run' },
-  { id: 'five_star', name: 'Most Wanted', desc: 'Reach 5 stars' },
-  { id: 'seven_star', name: 'Public Enemy', desc: 'Reach 7 stars' },
-  { id: 'carjacker', name: 'Carjacker', desc: 'Steal 10 cars' },
-  { id: 'tank_thief', name: 'Heavy Metal', desc: 'Steal a tank' },
-  { id: 'sky_hunter', name: 'Sky Hunter', desc: 'Shoot down a helicopter' },
-  { id: 'gunslinger', name: 'Gunslinger', desc: 'Take down 25 officers in total' },
-  { id: 'swimmer', name: 'Swim For It', desc: 'Swim across the river' },
-  { id: 'story', name: 'Legend', desc: 'Complete the story' },
-  { id: 'rich', name: 'High Roller', desc: 'Earn 10,000 coins in total' },
+  { id: 'first_wreck', name: 'First Blood',  desc: 'Wreck a police car',              reward: 250 },
+  { id: 'wrecker',     name: 'Scrap Dealer', desc: 'Wreck 50 police cars in total',   reward: 1200 },
+  { id: 'survivor',    name: 'Survivor',     desc: 'Survive 3 minutes in one run',    reward: 400 },
+  { id: 'marathon',    name: 'Marathon',     desc: 'Survive 6 minutes in one run',    reward: 1000 },
+  { id: 'five_star',   name: 'Most Wanted',  desc: 'Reach 5 stars',                   reward: 600 },
+  { id: 'seven_star',  name: 'Public Enemy', desc: 'Reach 7 stars',                   reward: 1500 },
+  { id: 'carjacker',   name: 'Carjacker',    desc: 'Steal 10 cars',                   reward: 500 },
+  { id: 'tank_thief',  name: 'Heavy Metal',  desc: 'Steal a tank',                    reward: 1000 },
+  { id: 'sky_hunter',  name: 'Sky Hunter',   desc: 'Shoot down a helicopter',         reward: 800 },
+  { id: 'gunslinger',  name: 'Gunslinger',   desc: 'Take down 25 officers in total',  reward: 900 },
+  { id: 'swimmer',     name: 'Swim For It',  desc: 'Swim across the river',           reward: 350 },
+  { id: 'story',       name: 'Legend',       desc: 'Complete the story',              reward: 2500 },
+  { id: 'rich',        name: 'High Roller',  desc: 'Earn 10,000 coins in total',      reward: 1500 },
 ];
 
 // One mission being played.
@@ -110,8 +111,8 @@ export class MissionRun {
     ring.position.y = 0.12;
     grp.add(beam, ring);
     if (kind === 'cash') {
-      const bag = new THREE.Mesh(new THREE.IcosahedronGeometry(0.8, 1), new THREE.MeshStandardMaterial({ color: 0x3f8f3a, roughness: 0.8, emissive: 0x113311 }));
-      bag.position.y = 1.4; bag.scale.set(1, 1.2, 0.9);
+      const bag = createMoneyBagMesh(2.4);
+      bag.position.y = 1.5;
       grp.add(bag); grp.userData.spin = bag;
     }
     grp.position.set(x, 0, z);

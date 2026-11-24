@@ -9,6 +9,7 @@ const DEFAULTS = () => ({
   owned: ['bolt'],
   selected: 'bolt',
   colors: {},
+  adProgress: {},  // vehicleId -> rewarded ads watched toward unlock
   map: 'city',
   best: {},        // mapId -> { score, time }
   totals: { runs: 0, copsWrecked: 0, coins: 0, time: 0 },
@@ -64,6 +65,7 @@ export function syncSaveFromCloud(current) {
       coins: Math.max(current.coins || 0, c.coins || 0),
       owned: [...new Set([...(current.owned || []), ...(c.owned || [])])],
       colors: { ...(c.colors || {}), ...(current.colors || {}) },
+      adProgress: { ...(c.adProgress || {}), ...(current.adProgress || {}) },
       trophies: { ...(c.trophies || {}), ...(current.trophies || {}) },
       best: { ...(c.best || {}), ...(current.best || {}) },
       story: {

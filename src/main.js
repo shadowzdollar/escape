@@ -808,10 +808,12 @@ class Game {
     s.trophies ||= {};
     if (s.trophies[id]) return;
     s.trophies[id] = true;
-    s.coins += 100;
-    this.persist();
     const t = TROPHIES.find((x) => x.id === id);
-    this.ui.toast(`🏆 TROPHY: ${t.name.toUpperCase()} +100`, 'good');
+    const prize = t?.reward || 250;
+    s.coins += prize;
+    s.totals.coins = (s.totals.coins || 0) + prize;
+    this.persist();
+    this.ui.toast(`🏆 TROPHY: ${(t?.name || id).toUpperCase()} +${prize} COINS`, 'good');
     this.audio.powerup();
     this.cg?.happytime?.();
   }
@@ -851,6 +853,12 @@ class Game {
     // driver's door is on the car's left: (cos h, -sin h)
     let x = v.x + c * (v.W / 2 + 0.8), z = v.z - s * (v.W / 2 + 0.8);
     if (this.city.pointBlocked(x, z, 0.4)) { x = v.x - c * (v.W / 2 + 0.8); z = v.z + s * (v.W / 2 + 0.8); }
+    if (v.boat) {
+      this.boats.unmountDriver(v);
+      const z0 = this.boats.z0, z1 = this.boats.z1;
+      if (v.z < z0 + 3.2) { x = v.x; z = z0 - 1.2; }
+      else if (v.z > z1 - 3.2) { x = v.x; z = z1 + 1.2; }
+    }
     this.avatar.spawn(x, z, v.heading, v.vx * 0.5, v.vz * 0.5);
     const av0 = this.avatar;
     if (bail || sp > 14) {
@@ -986,6 +994,7 @@ class Game {
     this.car = v;
     this.player = v;
     av.hide();
+    if (v.boat) this.boats.mountDriver(v, 'player');
     this.audio.doorSlam?.();
     return true;
   }
@@ -1187,6 +1196,16 @@ class Game {
     if (v.car.red) { v.car.red.color.setRGB(0.1, 0.02, 0.02); v.car.blue.color.setRGB(0.02, 0.02, 0.1); }
     if (v.car.pool) v.car.pool.visible = false;
     v.car.beam.visible = false;
+    if (v.explosive) {
+      this.explode(v.x, v.z, 19, 95, null, false);
+      if (this.state === 'playing') {
+        this.score += 500;
+        this.heat += 18;
+        this.runCoins += 8;
+        this.ui.toast('FUEL TANKER EXPLODED! +500', 'warn');
+      }
+      return;
+    }
     if (this.state !== 'playing') return;
     if (v.kind === 'police') {
       this.wrecks++;
@@ -1581,21 +1600,25 @@ class Game {
     if (mode === 'top') {
       const look = clamp(sp / 50, 0, 1) * 0.55;
       const tx = p.x + clamp(p.vx * look, -22, 22), tz = p.z + clamp(p.vz * look, -22, 22);
+      const ty = (p.boat || p.swimming) ? WATER_Y + 0.8 : 0;
       this.camTarget.x = damp(this.camTarget.x, tx, 4, dt);
+      this.camTarget.y = damp(this.camTarget.y || 0, ty, 4, dt);
       this.camTarget.z = damp(this.camTarget.z, tz, 4, dt);
       const zoom = (this.car ? 1 + clamp(sp / 55, 0, 1) * 0.3 + this.wantedLevel * 0.03 : 0.5 + this.wantedLevel * 0.015);
-      const want = new THREE.Vector3(this.camTarget.x, 42 * zoom, this.camTarget.z + 21 * zoom);
+      const want = new THREE.Vector3(this.camTarget.x, Math.max(12, this.camTarget.y + 42 * zoom), this.camTarget.z + 21 * zoom);
       cam.position.x = damp(cam.position.x, want.x, 6, dt);
       cam.position.y = damp(cam.position.y, want.y, 3, dt);
       cam.position.z = damp(cam.position.z, want.z, 6, dt);
-      cam.lookAt(this.camTarget.x, 0, this.camTarget.z);
+      cam.lookAt(this.camTarget.x, this.camTarget.y, this.camTarget.z);
     } else {
       const back = 11 + clamp(sp / 50, 0, 1) * 3;
-      const want = new THREE.Vector3(p.x - Math.sin(p.heading) * back, 5.2, p.z - Math.cos(p.heading) * back);
+      const baseY = (p.boat || p.swimming) ? WATER_Y + 0.5 : (p.y || 0);
+      const camH = (p.boat || p.swimming) ? 2.4 : 5.2;
+      const want = new THREE.Vector3(p.x - Math.sin(p.heading) * back, baseY + camH, p.z - Math.cos(p.heading) * back);
       cam.position.x = damp(cam.position.x, want.x, 5, dt);
       cam.position.y = damp(cam.position.y, want.y, 5, dt);
       cam.position.z = damp(cam.position.z, want.z, 5, dt);
-      this.camTarget.set(p.x + Math.sin(p.heading) * 6, 1.2, p.z + Math.cos(p.heading) * 6);
+      this.camTarget.set(p.x + Math.sin(p.heading) * 6, baseY + 1.1, p.z + Math.cos(p.heading) * 6);
       cam.lookAt(this.camTarget);
       fov += clamp(sp / 55, 0, 1) * 10;
     }
@@ -1617,6 +1640,14 @@ class Game {
     const p = this.player;
     const n = this.police.nearestCopDistance();
     const siren = n.d < 200 ? (1 - n.d / 200) * 0.09 * Math.min(1.5, 0.6 + this.copsNear * 0.2) : 0;
+    const m = this.car?.model || '';
+    const category = !this.car ? 'foot'
+      : this.car.boat ? 'boat'
+      : m === 'tank' ? 'tank'
+      : /^(bus|cargo|tanker|delivery|van)$/.test(m) ? 'heavy'
+      : /^(sports|super|hyper|rosso|velox|toro|veyra|stutt)$/.test(m) ? 'exotic'
+      : /^(muscle|stallion|eldorado|truck|raptor|pickup|suv|gelande)$/.test(m) ? 'muscle'
+      : 'compact';
     this.audio.update({
       active: this.state === 'playing' || this.state === 'over' || this.state === 'intro',
       speedRatio: clamp(p.speed / (p.stats.speed * 1.3), 0, 1),
@@ -1626,6 +1657,7 @@ class Game {
       rotor: Math.min(0.45, this.police.rotorVolume() + this.military.rotorVolume()),
       nitro: p.nitroActive,
       foot: !this.car,
+      category,
     });
   }
 

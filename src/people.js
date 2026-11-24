@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { CITY } from './config.js';
 import { clamp, wrapAngle, pick, damp, lerp, smoothstep } from './utils.js';
+import { resolveCircleCity, sweepCircleCity, resolveCircleVehicle } from './collision.js';
 
 const { ROAD, SIDEWALK, N } = CITY;
 const MAX = 120;
@@ -88,7 +89,10 @@ function buildGeometry() {
   const stick = new THREE.CylinderGeometry(0.01, 0.01, 0.8, 4); stick.translate(0, -0.3, 0);
   vcol(canopy, 1); vcol(stick, 0.2);
   g.umbrella = merge([canopy, stick]);
-  g.bag = new THREE.IcosahedronGeometry(0.2, 1); g.bag.scale(1, 1.15, 0.9);
+  const bagBody = new THREE.BoxGeometry(0.38, 0.25, 0.22); bagBody.translate(0, -0.12, 0);
+  const bagTop = new THREE.BoxGeometry(0.32, 0.04, 0.05); bagTop.translate(0, 0.01, 0);
+  vcol(bagBody, 1); vcol(bagTop, 0.25);
+  g.bag = merge([bagBody, bagTop]);
   return g;
 }
 
@@ -177,9 +181,12 @@ export class People {
       hair: hat ? 'cap' : R() < 0.4 ? 'long' : R() < 0.08 ? 'none' : 'short',
       backpack: !child && R() < 0.22,
       umbrella: map === 'night' && !child && R() < 0.65,
-      // personality
-      walk: child ? 1.25 : (map === 'night' ? 1.35 : map === 'snow' ? 1.05 : 1.2) + R() * 0.35,
-      curiosity: R(), nerve: R(), reaction: 0.18 + R() * 0.35,
+      // personality & natural gait variation (prevents robotic/zombie uniformity)
+      walk: child ? 1.15 + R() * 0.25 : (map === 'night' ? 1.25 : map === 'snow' ? 0.98 : 1.05) + R() * 0.55,
+      curiosity: R(), nerve: R(), reaction: 0.14 + R() * 0.42,
+      strideMod: 0.88 + R() * 0.24,
+      stopChance: 0.05 + R() * 0.1,
+      panicStyle: R() < 0.22 ? 'crouch' : R() < 0.5 ? 'handsUp' : 'sprint',
       // state
       mode: 'walk', timer: 0, path: [], block: null, k: 0, dir: R() < 0.5 ? 1 : -1, lane: 1.5,
       phase: R() * 6.28, pose: zeroPose(), gait: 0, run: 0,
@@ -694,29 +701,37 @@ export class People {
   }
 
   carDanger(p, dt) {
+    const city = this.game.city;
     for (const v of this.vehicles) {
+      if (v.boat) continue;
       const rx = p.x - v.x, rz = p.z - v.z;
       const d2 = rx * rx + rz * rz;
       if (d2 > 900) continue;
       const sp2 = v.vx * v.vx + v.vz * v.vz;
-      const sin = Math.sin(v.heading), cos = Math.cos(v.heading);
-      const fwd = rx * sin + rz * cos, side = rx * cos - rz * sin;
-      if (Math.abs(fwd) < v.L / 2 + 0.25 && Math.abs(side) < v.W / 2 + 0.25) {
-        if (sp2 > 7) {
+      // Exact OBB vs circle vehicle collision so pedestrians NEVER walk through parked/slow vehicles!
+      const hit = resolveCircleVehicle(p.x, p.z, 0.34, v);
+      if (hit) {
+        const relApproach = v.vx * hit.nx + v.vz * hit.nz;
+        if (sp2 > 7 && relApproach > 2.2) {
           if (p.copFoot || p.hostile) { p.hp = (p.hp ?? 40) - Math.sqrt(sp2) * 3; if (p.hp <= 0 && !p.dead) { p.dead = true; this.game.onOfficerDown?.(p, v); } }
-          this.knock(p, v.vx, v.vz);
+          p.x += hit.nx * (hit.pen + 0.1);
+          p.z += hit.nz * (hit.pen + 0.1);
+          this.knock(p, v.vx + hit.nx * 3.5, v.vz + hit.nz * 3.5);
           if (!p.copFoot) this.game.onPedestrianHit?.(p, v);
         } else {
-          const d = Math.sqrt(d2) || 1;
-          p.x += (rx / d) * 0.06; p.z += (rz / d) * 0.06;
+          // Hard OBB push-out + building re-clamp so peds smoothly step around parked cars
+          p.x += hit.nx * hit.pen;
+          p.z += hit.nz * hit.pen;
+          const safe = resolveCircleCity(p.x, p.z, 0.32, p.y || 0.15, city, { skipRiver: false });
+          p.x = safe.x; p.z = safe.z;
         }
         return;
       }
-      if (sp2 < 30 || p.mode === 'dodge' || p.hostile) continue; // targets and guards don't dive clear
+      if (sp2 < 24 || p.mode === 'dodge' || p.hostile) continue; // targets and guards don't dive clear
       const t = -(rx * v.vx + rz * v.vz) / sp2;
-      if (t < 0 || t > 1.5) continue;
+      if (t < 0 || t > 1.6) continue;
       const cx = rx + v.vx * t, cz = rz + v.vz * t;
-      if (cx * cx + cz * cz < 6.5) {
+      if (cx * cx + cz * cz < 7.2) {
         // human reaction time before diving clear: slow reactors can get clipped
         p.danger = (p.danger || 0) + dt;
         if (p.danger < p.reaction) { p.look = v; p.lookT = 1; p.startle = 0.3; return; }
@@ -727,17 +742,19 @@ export class People {
         const s = nx * rx + nz * rz >= 0 ? 1 : -1;
         p.mode = 'dodge';
         p.fleeDir = Math.atan2(nx * s, nz * s);
-        p.timer = 0.5 + R() * 0.2;
+        p.timer = 0.48 + R() * 0.25;
         p.dodgeX = v.x; p.dodgeZ = v.z;
         p.look = v; p.lookT = 2;
         p.phoneOut = false; p.film = false;
+        const distToPlayer = Math.hypot(p.x - this.game.focus.x, p.z - this.game.focus.z);
+        if (distToPlayer < 26 && R() < 0.35) this.game.audio.pedReact?.('dodge', distToPlayer);
         return;
       }
     }
     p.danger = 0;
   }
 
-  // Steering: seek + personal space + street-furniture avoidance, human turn rate.
+  // Steering: seek + personal space + street-furniture & vehicle avoidance, natural human turn rate.
   moveTo(p, tx, tz, speed, dt, loose = false) {
     const dx = tx - p.x, dz = tz - p.z;
     const d = Math.hypot(dx, dz) || 1;
@@ -747,12 +764,26 @@ export class People {
       if (o.mode === 'down' || o === p.leader || o.leader === p || (p.leader && o.leader === p.leader)) return;
       const ox = p.x - o.x, oz = p.z - o.z;
       const od = Math.hypot(ox, oz);
-      if (od < 1.1 && od > 0.001) {
-        const k = (1.1 - od) * 1.6;
+      if (od < 1.25 && od > 0.001) {
+        const k = (1.25 - od) * 1.7;
         sx += (ox / od) * k; sz += (oz / od) * k;
-        if (ox * fx + oz * fz < 0) { sx += -fz * 0.35; sz += fx * 0.35; } // keep right when passing
+        if (ox * fx + oz * fz < 0) { sx += -fz * 0.4; sz += fx * 0.4; } // keep right when passing
       }
     });
+    // Steer smoothly around parked and nearby vehicles instead of walking into them
+    for (const v of this.vehicles) {
+      if (v.boat) continue;
+      const ox = p.x - v.x, oz = p.z - v.z;
+      const r = v.L * 0.5 + 1.4;
+      const d2 = ox * ox + oz * oz;
+      if (d2 < r * r && d2 > 0.01) {
+        const od = Math.sqrt(d2);
+        const sgn = (ox * fz - oz * fx) >= 0 ? 1 : -1;
+        const w = (r - od) / r;
+        sx += (ox / od) * (1.5 * w) + fz * sgn * (1.1 * w);
+        sz += (oz / od) * (1.5 * w) - fx * sgn * (1.1 * w);
+      }
+    }
     this.game.city.query(p.x + fx * 0.9, p.z + fz * 0.9, 1, (o) => {
       if (o.type !== 'circle') return;
       const ox = p.x - o.x, oz = p.z - o.z;
@@ -763,27 +794,40 @@ export class People {
       }
     });
     const want = Math.atan2(sx, sz);
-    const turn = (loose ? 7 : 4.5) * dt;
+    const turn = (loose ? 7 : 4.2) * dt;
     p.heading += clamp(wrapAngle(want - p.heading), -turn, turn);
     const align = Math.max(0.25, Math.cos(wrapAngle(want - p.heading)));
-    p.speed = damp(p.speed, speed * align, 3.5, dt);
+    p.speed = damp(p.speed, speed * align, 3.8, dt);
     const nx = p.x + Math.sin(p.heading) * p.speed * dt, nz = p.z + Math.cos(p.heading) * p.speed * dt;
-    if (this.game.city.pointBlocked(nx, nz, 0.3)) { p.speed *= 0.3; p.path = []; return; }
-    p.x = nx; p.z = nz;
+    const sweep = sweepCircleCity(p.x, p.z, nx, nz, 0.32, p.y || 0.15, this.game.city, { skipRiver: false });
+    p.x = sweep.x; p.z = sweep.z;
+    if (sweep.hit) { p.speed *= 0.35; p.path = []; }
   }
 
   moveDir(p, dir, speed, dt, turnRate = 6) {
     p.heading += clamp(wrapAngle(dir - p.heading), -turnRate * dt, turnRate * dt);
     p.speed = damp(p.speed, speed, 6, dt);
     const nx = p.x + Math.sin(p.heading) * p.speed * dt, nz = p.z + Math.cos(p.heading) * p.speed * dt;
-    if (this.game.city.pointBlocked(nx, nz, 0.35)) { p.fleeDir += (R() < 0.5 ? 1 : -1) * 1.4; p.speed *= 0.5; return; }
-    p.x = nx; p.z = nz;
+    const sweep = sweepCircleCity(p.x, p.z, nx, nz, 0.34, p.y || 0.15, this.game.city, { skipRiver: false });
+    p.x = sweep.x; p.z = sweep.z;
+    if (sweep.hit) { p.fleeDir += (R() < 0.5 ? 1 : -1) * 1.4; p.speed *= 0.5; }
   }
 
   updateDown(p, dt) {
     const city = this.game.city;
     p.vy -= 18 * dt;
-    p.x += p.vx * dt; p.z += p.vz * dt; p.y += p.vy * dt;
+    const nx = p.x + p.vx * dt, nz = p.z + p.vz * dt;
+    const sweep = sweepCircleCity(p.x, p.z, nx, nz, 0.34, p.y || 0.15, city, { skipRiver: false });
+    p.x = sweep.x; p.z = sweep.z;
+    if (sweep.hit) {
+      const vn = p.vx * sweep.nx + p.vz * sweep.nz;
+      if (vn < 0) {
+        p.vx -= 1.3 * vn * sweep.nx;
+        p.vz -= 1.3 * vn * sweep.nz;
+        p.vx *= 0.65; p.vz *= 0.65;
+      }
+    }
+    p.y += p.vy * dt;
     const gy = city.groundHeight(p.x, p.z);
     const air = p.y > gy + 0.02;
     if (!air) {
@@ -792,7 +836,6 @@ export class People {
       const f = Math.exp(-4.5 * dt);
       p.vx *= f; p.vz *= f;
     }
-    if (city.pointBlocked(p.x, p.z, 0.3)) { p.x -= p.vx * dt * 2; p.z -= p.vz * dt * 2; p.vx *= -0.3; p.vz *= -0.3; }
     // tumble in the air, then settle flat on the back / front
     p.fallP += p.fallV * dt;
     p.heading += (p.spinV || 0) * dt;
