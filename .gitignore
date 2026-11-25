@@ -41,3 +41,5 @@ Thumbs.db
 *.mov
 *.wav
 .workspace/
+game_reference/
+GAME_REFERENCE/
