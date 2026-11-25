@@ -9,6 +9,7 @@ import {
   asphaltTexture, groundTexture, sidewalkTexture, facadeTextures, radialTexture, signTexture, asphaltDetailMaps,
 } from './textures.js';
 import { cityKit } from './cityKit.js';
+import { buildVesper } from './vesper.js';
 
 const { N, BLOCK, ROAD, SIDEWALK, CELL, RIVER_ROW, HALF } = CITY;
 // Objects on this layer are drawn only by the sun's shadow camera (cheap shadow proxies).
@@ -43,6 +44,15 @@ const THEMES = {
     houseRoof: ['#c8a67e'],
     flatRoof: ['#cdb08a', '#bfa07a', '#d6bb95'],
     tree: 'palm', maxH: 34, water: '#2f8a86', lineAlpha: 0.6, snowRoof: false,
+  },
+  cyber: {
+    ground: 'dirt', road: '#20232b', sidewalk: '#3b4254', curb: '#2a3040',
+    facades: { cyber: { cw: 3.0, ch: 3.2 }, cybertower: { cw: 3.0, ch: 3.8 } },
+    wall: ['#ffffff', '#d4e6ff', '#ffe0f7', '#dffaff', '#c9d2ff', '#f0f0ff'],
+    glassTint: ['#9fc0dc'],
+    houseRoof: ['#232838', '#2c3347'],
+    flatRoof: ['#202534', '#2a3040', '#171b28'],
+    tree: 'round', maxH: 120, water: '#0b2f4a', lineAlpha: 1, snowRoof: false,
   },
   snow: {
     ground: 'snow', road: '#4a4f56', sidewalk: '#dfe5ec', curb: '#c6ccd3',
@@ -490,8 +500,8 @@ export class City {
     this.facadeMats = {};
     for (const [style, tx] of Object.entries(this.facadeTex)) {
       this.facadeMats[style] = new THREE.MeshStandardMaterial({
-        map: tx.map, emissiveMap: tx.emissive, emissive: new THREE.Color(this.night ? 0xffe2b0 : 0x000000),
-        emissiveIntensity: this.night ? 1.25 : 0, vertexColors: true,
+        map: tx.map, emissiveMap: tx.emissive, emissive: new THREE.Color(this.night ? (this.map.theme === 'cyber' ? 0xffffff : 0xffe2b0) : 0x000000),
+        emissiveIntensity: this.night ? (this.map.theme === 'cyber' ? 1.1 : 1.25) : 0, vertexColors: true,
         // per-pixel surface: matte walls, glossy reflective windows set back behind sills and ledges
         roughness: 1, metalness: 1, roughnessMap: tx.orm, metalnessMap: tx.orm,
         normalMap: tx.normal, normalScale: new THREE.Vector2(0.9, 0.9),
@@ -516,7 +526,7 @@ export class City {
     addPropType('bush', pg.bush, new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true }), { colors: true });
     addPropType('rock', pg.rock, new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true }), { colors: true });
     addPropType('lampPole', pg.lampPole, trim);
-    this.lampHeadMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(this.night ? 3.2 : 0.9, this.night ? 2.8 : 0.9, this.night ? 2.0 : 0.85) });
+    this.lampHeadMat = new THREE.MeshBasicMaterial({ color: this.map.theme === 'cyber' ? new THREE.Color(0.9, 2.6, 3.4) : new THREE.Color(this.night ? 3.2 : 0.9, this.night ? 2.8 : 0.9, this.night ? 2.0 : 0.85) });
     addPropType('lampHead', pg.lampHead, this.lampHeadMat, { cast: false });
     addPropType('hydrant', pg.hydrant, new THREE.MeshStandardMaterial({ color: 0xd62828, roughness: 0.5, metalness: 0.3 }));
     addPropType('bench', pg.bench, new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 0.8 }));
@@ -584,6 +594,7 @@ export class City {
     this.buildRiver();
     this.buildBoundary();
     this.buildOutskirts();
+    if (this.map.theme === 'cyber') this.cyber = buildVesper(this);
     this.finalize();
   }
 
@@ -778,6 +789,7 @@ export class City {
 
   facadeStyleFor(kind) {
     const f = Object.keys(this.theme.facades);
+    if (this.map.theme === 'cyber') return kind === 'tower' || (kind === 'mid' && this.rng() < 0.35) ? 'cybertower' : 'cyber';
     if (kind === 'tower') return f.includes('glass') ? (this.rng() < 0.65 ? 'glass' : 'office') : 'office';
     if (kind === 'house') return f.includes('adobe') ? 'adobe' : f.includes('brick') ? (this.rng() < 0.5 ? 'brick' : 'residential') : 'residential';
     if (kind === 'warehouse') return f.includes('brick') ? 'brick' : 'office';
@@ -797,8 +809,9 @@ export class City {
     const uo = Math.floor(rng() * 8) / 8, vo = Math.floor(rng() * 8) / 8;
     this.addBox(x0, x1, z0, z1, 'building', h);
     let tiers = [[x0, x1, z0, z1, Y, Y + h]];
-    if (h > 45 && kind === 'tower') {
-      const inset1 = Math.min(3.5, (x1 - x0) * 0.12), inset2 = inset1 * 2.2;
+    const cyber = this.map.theme === 'cyber';
+    if ((h > 45 && kind === 'tower') || (cyber && h > 22 && kind !== 'house')) {
+      const inset1 = Math.min(cyber ? 4.2 : 3.5, (x1 - x0) * (cyber ? 0.16 : 0.12)), inset2 = inset1 * 2.2;
       const h1 = h * rand(rng, 0.55, 0.7), h2 = h * rand(rng, 0.82, 0.9);
       tiers = [
         [x0, x1, z0, z1, Y, Y + h1],
@@ -818,6 +831,7 @@ export class City {
         pbox(roof, a1 - p, a1, y1, y1 + ph, c0, c1, pc);
       }
     }
+    if (cyber) this.cyberDressing(b, tiers, kind);
     // roof details
     const top = tiers[tiers.length - 1];
     const [t0, t1, s0, s1, , ty] = top;
@@ -875,6 +889,38 @@ export class City {
       }
     }
     return { style, wallCol };
+  }
+
+  // Vesper City: neon crown lines on every setback, vertical light strips and ad-panel placements.
+  cyberDressing(b, tiers, kind) {
+    const rng = this.rng;
+    const colors = ['#00e5ff', '#ff2bd6', '#ffb020', '#7c5cff'];
+    const base = pick(rng, colors), alt = pick(rng, colors);
+    for (const [a0, a1, c0, c1, , y1] of tiers) {
+      const w = a1 - a0, d = c1 - c0, cx = (a0 + a1) / 2, cz = (c0 + c1) / 2;
+      this.prop('neon', cx, y1 + 0.3, c0 - 0.06, 0, 1, base, w, 0.22, 0.22);
+      this.prop('neon', cx, y1 + 0.3, c1 + 0.06, 0, 1, base, w, 0.22, 0.22);
+      this.prop('neon', a0 - 0.06, y1 + 0.3, cz, 0, 1, base, 0.22, 0.22, d);
+      this.prop('neon', a1 + 0.06, y1 + 0.3, cz, 0, 1, base, 0.22, 0.22, d);
+    }
+    const [a0, a1, c0, c1] = tiers[0], y1 = tiers[0][5];
+    if (kind !== 'house' && rng() < 0.5) {
+      // vertical light strip on a corner of the podium
+      this.prop('neon', a0 - 0.08, y1 / 2 + 0.15, c0 - 0.08, 0, 1, alt, 0.3, y1, 0.3);
+      this.prop('neon', a1 + 0.08, y1 / 2 + 0.15, c1 + 0.08, 0, 1, alt, 0.3, y1, 0.3);
+    }
+    if (kind !== 'house' && y1 > 16 && rng() < 0.55) {
+      const faces = [
+        { x: (a0 + a1) / 2, z: c0 - 0.14, rot: Math.PI, span: a1 - a0 },
+        { x: (a0 + a1) / 2, z: c1 + 0.14, rot: 0, span: a1 - a0 },
+        { x: a0 - 0.14, z: (c0 + c1) / 2, rot: -Math.PI / 2, span: c1 - c0 },
+        { x: a1 + 0.14, z: (c0 + c1) / 2, rot: Math.PI / 2, span: c1 - c0 },
+      ];
+      const f = pick(rng, faces);
+      const w = Math.min(f.span * 0.7, 13), hh = w * 0.62;
+      const y = Math.min(y1 - hh / 2 - 1, 7 + hh / 2 + rng() * 6);
+      (this.vesperAds ||= []).push({ x: f.x, y, z: f.z, rot: f.rot, w, h: hh });
+    }
   }
 
   // extra vertex-coloured geometry (domes, pyramids details, plane) merged at the end
@@ -1851,6 +1897,7 @@ export class City {
       set(this.tlMat.a, t < 6.5 ? 'g' : t < 8 ? 'y' : 'r');
       set(this.tlMat.b, t >= 8 && t < 14.5 ? 'g' : t >= 14.5 ? 'y' : 'r');
     }
+    this.cyber?.update(dt, time);
     // aviation beacons blink
     if (this.beaconMat) {
       const on = Math.sin(time * 3) > 0.3;
@@ -1859,6 +1906,7 @@ export class City {
   }
 
   dispose() {
+    this.cyber?.dispose();
     this.group.traverse((o) => {
       if (o.geometry) o.geometry.dispose();
     });

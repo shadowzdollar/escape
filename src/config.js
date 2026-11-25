@@ -100,6 +100,10 @@ export const MAPS = [
     theme: 'city', time: 'night', grip: 0.92,
   },
   {
+    id: 'vesper', name: 'VESPER CITY', desc: 'Cyberpunk voxel megacity: neon, holo-ads, drones, rain.', seed: 2077,
+    theme: 'cyber', time: 'night', grip: 0.9,
+  },
+  {
     id: 'desert', name: 'DUST VALLEY', desc: 'Sun-baked desert town at golden hour.', seed: 777,
     theme: 'desert', time: 'dusk', grip: 0.95,
   },
@@ -152,6 +156,7 @@ export const POWERUPS = {
   magnet: { label: 'MAGNET', color: '#ff4d6d', icon: 'M' },
   guns: { label: 'MACHINE GUNS', color: '#ff9f1c', icon: 'G' },
   rockets: { label: 'ROCKETS', color: '#e63946', icon: 'R' },
+  carbine: { label: 'PULSE CARBINE', color: '#22e0ff', icon: 'P' },
 };
 
 export const COIN_VALUE = 5;

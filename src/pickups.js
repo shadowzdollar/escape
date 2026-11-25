@@ -58,7 +58,7 @@ export class Pickups {
     const g = this.game, p = g.player;
     const spot = g.city.randomRoadSpot(Math.random, p.x, p.z, 50, 140);
     if (!spot) return;
-    const weights = { nitro: 26, repair: g.player.hp < g.player.maxHp * 0.6 ? 35 : 15, shield: 14, emp: 12, magnet: 10, guns: 16 + g.wantedLevel * 3, rockets: 6 + g.wantedLevel * 3 };
+    const weights = { nitro: 26, repair: g.player.hp < g.player.maxHp * 0.6 ? 35 : 15, shield: 14, emp: 12, magnet: 10, guns: 16 + g.wantedLevel * 3, carbine: 9 + g.wantedLevel * 2 + (g.map?.id === 'vesper' ? 14 : 0), rockets: 6 + g.wantedLevel * 3 };
     let r = Math.random() * Object.values(weights).reduce((a, b) => a + b, 0);
     let type = 'nitro';
     for (const [k, w] of Object.entries(weights)) { r -= w; if (r <= 0) { type = k; break; } }

@@ -7,7 +7,7 @@ import { SEQUENCES, STORY, contractsFor, rankOf, xpForRank, storyUnlocked, seque
 import { speaker } from './story/characters.js';
 import { formatTime } from './utils.js';
 import { Vector3 as THREE_VEC } from 'three';
-const WEAPON_NAMES = { pistol: 'PISTOL', smg: 'SMG', rpg: 'ROCKETS' };
+const WEAPON_NAMES = { pistol: 'PISTOL', smg: 'SMG', rpg: 'ROCKETS', carbine: 'PULSE CARBINE' };
 
 const $ = (s) => document.querySelector(s);
 
@@ -590,7 +590,7 @@ export class UI {
     let w = '';
     if (foot) {
       const a = c.ammo[c.weapon];
-      w = `${WEAPON_NAMES[c.weapon]} <b>${a === Infinity ? '∞' : a}</b><small>${c.ammo.smg > 0 || c.ammo.rpg > 0 ? 'Q: SWITCH' : 'CLICK / J / RIGHT STICK: SHOOT'}</small>`;
+      w = `${WEAPON_NAMES[c.weapon]} <b>${a === Infinity ? '∞' : a}</b><small>${c.ammo.smg > 0 || c.ammo.rpg > 0 || c.ammo.carbine > 0 ? 'Q: SWITCH' : 'CLICK / J / RIGHT STICK: SHOOT'}</small>`;
     } else {
       const v = g.car;
       if (v.weapons) w += `${VEHICLE_WEAPONS[v.weapons[v.wIdx || 0]].name} <b>∞</b><small>CLICK / J: FIRE${v.weapons.length > 1 ? ' · Q: SWITCH' : ''}</small><br>`;
@@ -622,7 +622,7 @@ export class UI {
     if (tAct) tAct.textContent = foot ? 'GET IN' : 'EXIT';
     const armed = foot || c.carGuns > 0 || c.carRockets > 0 || !!g.car?.weapons;
     if (tFire) tFire.style.display = armed ? '' : 'none';
-    const multiWep = foot ? (c.ammo.smg > 0 || c.ammo.rpg > 0) : (g.car?.weapons?.length > 1);
+    const multiWep = foot ? (c.ammo.smg > 0 || c.ammo.rpg > 0 || c.ammo.carbine > 0) : (g.car?.weapons?.length > 1);
     if (tWep) tWep.style.display = multiWep ? '' : 'none';
   }
 

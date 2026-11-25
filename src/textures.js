@@ -87,6 +87,7 @@ export function sidewalkTexture(tone = '#b8b5ad', seed = 3) {
 // Facade atlas: an 8x8 grid of window cells, plus a matching emissive map for night.
 // UVs map 8 cells per texture repeat so each building shows varied lit windows.
 export function facadeTextures(style, seed = 4) {
+  if (style === 'cyber' || style === 'cybertower') return cyberFacade(style, seed);
   const rng = mulberry32(seed);
   const S = 512, cells = 8, cs = S / cells;
   const [c, ctx] = canvas(S);
@@ -307,4 +308,51 @@ export function asphaltDetailMaps(seed = 5, puddles = false) {
   const normal = toTexture(nc, { srgb: false });
   const rough = toTexture(rc2, { srgb: false });
   return { normal, rough };
+}
+
+// ------------------------------------------------------------------ Vesper City facades
+// Dark stepped-voxel architecture with cyan / magenta / amber lit windows and neon floor bands
+// (art direction from the Neon District reference: midnight navy, electric cyan, hot magenta).
+const NEON_LIT = ['#27e6ff', '#27e6ff', '#ff3df0', '#ffb347', '#9be8ff', '#b36bff'];
+function cyberFacade(style, seed) {
+  const rng = mulberry32(seed + 31);
+  const S = 512, cells = 8, cs = S / cells;
+  const tower = style === 'cybertower';
+  const [c, ctx] = canvas(S);
+  const [e, ectx] = canvas(S);
+  const [o, octx] = canvas(S);
+  const [h, hctx] = canvas(S);
+  noiseFill(ctx, S, S, tower ? '#141d33' : '#18203a', 10, rng, 2);
+  ectx.fillStyle = '#000'; ectx.fillRect(0, 0, S, S);
+  octx.fillStyle = 'rgb(0,150,40)'; octx.fillRect(0, 0, S, S); // wet-looking painted concrete
+  hctx.fillStyle = '#c8c8c8'; hctx.fillRect(0, 0, S, S);
+  for (let gy = 0; gy < cells; gy++) {
+    for (let gx = 0; gx < cells; gx++) {
+      const x0 = gx * cs, y0 = gy * cs;
+      let wx, wy, ww, wh;
+      if (tower) { wx = x0 + 6; wy = y0 + 3; ww = cs - 12; wh = cs - 6; } // continuous glazed curtain wall
+      else { wx = x0 + 11; wy = y0 + 13; ww = cs - 22; wh = cs - 24; }
+      const g = ctx.createLinearGradient(wx, wy, wx + ww, wy + wh);
+      g.addColorStop(0, '#16324f'); g.addColorStop(1, '#070d1a');
+      ctx.fillStyle = g; ctx.fillRect(wx, wy, ww, wh);
+      octx.fillStyle = 'rgb(0,24,170)'; octx.fillRect(wx, wy, ww, wh);
+      hctx.fillStyle = '#6a6a6a'; hctx.fillRect(wx, wy, ww, wh);
+      ctx.strokeStyle = 'rgba(0,229,255,0.35)'; ctx.lineWidth = 2; ctx.strokeRect(wx, wy, ww, wh);
+      if (rng() < (tower ? 0.62 : 0.5)) {
+        const col = NEON_LIT[Math.floor(rng() * NEON_LIT.length)];
+        const b = 0.45 + rng() * 0.55;
+        ectx.globalAlpha = b; ectx.fillStyle = col;
+        ectx.fillRect(wx + 3, wy + 3, ww - 6, wh - 6); ectx.globalAlpha = 1;
+        if (!tower && rng() < 0.4) { ectx.fillStyle = '#000'; ectx.fillRect(wx + ww / 2 - 1, wy + 3, 2, wh - 6); } // blinds / mullion
+      }
+    }
+    // neon floor band + structural ledge every other storey
+    if (gy % 2 === 0) {
+      const col = NEON_LIT[Math.floor(rng() * NEON_LIT.length)];
+      ectx.fillStyle = col; ectx.fillRect(0, gy * cs + 1, S, 3);
+      ctx.fillStyle = col; ctx.globalAlpha = 0.5; ctx.fillRect(0, gy * cs + 1, S, 3); ctx.globalAlpha = 1;
+      hctx.fillStyle = '#e8e8e8'; hctx.fillRect(0, gy * cs, S, 5);
+    }
+  }
+  return { map: toTexture(c), emissive: toTexture(e), orm: toTexture(o, { srgb: false }), normal: heightToNormal(hctx, S, 2.4) };
 }

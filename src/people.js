@@ -177,10 +177,10 @@ export class People {
       skin: this.c.set(pick(R, SKIN)).clone(),
       hairC: this.c.set(pick(R, HAIR)).clone(),
       hatC: this.c.set(pick(R, ['#c0392b', '#2c3e50', '#f1c40f', '#ecf0f1', '#27ae60', '#8e44ad'])).clone(),
-      longSleeve: winter || map === 'night' || R() < 0.45,
+      longSleeve: winter || map === 'night' || map === 'vesper' || R() < 0.45,
       hair: hat ? 'cap' : R() < 0.4 ? 'long' : R() < 0.08 ? 'none' : 'short',
       backpack: !child && R() < 0.22,
-      umbrella: map === 'night' && !child && R() < 0.65,
+      umbrella: (map === 'night' || map === 'vesper') && !child && R() < 0.65,
       // personality & natural gait variation (prevents robotic/zombie uniformity)
       walk: child ? 1.15 + R() * 0.25 : (map === 'night' ? 1.25 : map === 'snow' ? 0.98 : 1.05) + R() * 0.55,
       curiosity: R(), nerve: R(), reaction: 0.14 + R() * 0.42,

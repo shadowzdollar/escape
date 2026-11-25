@@ -11,6 +11,8 @@ export const WEAPONS = {
   pistol: { name: 'PISTOL', rate: 3.2, dmg: 16, spread: 0.035, speed: 125, auto: false },
   smg: { name: 'SMG', rate: 11, dmg: 8, spread: 0.08, speed: 125, auto: true },
   rpg: { name: 'ROCKETS', rate: 0.9, dmg: 130, radius: 8, rocket: true, auto: false },
+  // Neon District pulse carbine: fast ion bolts, tight spread, auto-fire
+  carbine: { name: 'PULSE CARBINE', rate: 7.5, dmg: 14, spread: 0.02, speed: 175, auto: true, ion: true },
 };
 
 const MAX_BULLETS = 240;
@@ -31,7 +33,7 @@ export class Combat {
     this.rocketMat = new THREE.MeshStandardMaterial({ color: 0x6b7f3a, roughness: 0.5 });
     this.m = new THREE.Matrix4(); this.q = new THREE.Quaternion(); this.v = new THREE.Vector3(); this.s = new THREE.Vector3(1, 1, 1);
     this.fwd = new THREE.Vector3(0, 0, 1);
-    this.cBul = new THREE.Color(1, 0.85, 0.4); this.cCop = new THREE.Color(1, 0.4, 0.3);
+    this.cBul = new THREE.Color(1, 0.85, 0.4); this.cCop = new THREE.Color(1, 0.4, 0.3); this.cIon = new THREE.Color(0.1, 0.9, 1.5);
     this.reset();
   }
 
@@ -40,7 +42,7 @@ export class Combat {
     this.bullets = [];
     this.rockets = [];
     this.weapon = 'pistol';
-    this.ammo = { pistol: Infinity, smg: 0, rpg: 0 };
+    this.ammo = { pistol: Infinity, smg: 0, rpg: 0, carbine: 0 };
     this.cool = 0;
     this.carGuns = 0;      // seconds of car machine-gun left
     this.carRockets = 0;   // car rockets left
@@ -79,15 +81,16 @@ export class Combat {
   }
 
   // ---------------------------------------------------------------- firing
-  fireBullet(x, y, z, dx, dy, dz, { speed = 120, dmg = 10, spread = 0.04, owner = 'player' } = {}) {
+  fireBullet(x, y, z, dx, dy, dz, { speed = 120, dmg = 10, spread = 0.04, owner = 'player', ion = false } = {}) {
     if (this.bullets.length >= MAX_BULLETS) this.bullets.shift();
     const len = Math.hypot(dx, dy, dz) || 1;
     dx /= len; dy /= len; dz /= len;
     dx += (Math.random() - 0.5) * spread * 2; dy += (Math.random() - 0.5) * spread; dz += (Math.random() - 0.5) * spread * 2;
     const n = Math.hypot(dx, dy, dz);
-    this.bullets.push({ x, y, z, vx: dx / n * speed, vy: dy / n * speed, vz: dz / n * speed, life: 1.1, dmg, owner });
+    this.bullets.push({ x, y, z, vx: dx / n * speed, vy: dy / n * speed, vz: dz / n * speed, life: 1.1, dmg, owner, ion });
     if (owner === 'player') this.game.mission?.onNoise?.(x, z); // guards hear gunfire
-    this.game.effects.glowP.spawn(x, y, z, 0, 0, 0, 1, 0.8, 0.4, 0.55, 0.05, { alpha: 1 });
+    if (ion) this.game.effects.glowP.spawn(x, y, z, 0, 0, 0, 0.15, 0.9, 1, 0.7, 0.06, { alpha: 1 });
+    else this.game.effects.glowP.spawn(x, y, z, 0, 0, 0, 1, 0.8, 0.4, 0.55, 0.05, { alpha: 1 });
   }
 
   // Player on foot pulls the trigger. aim: { yaw, manual } in world space.
@@ -103,7 +106,7 @@ export class Combat {
     if (t) { dx = t.x - hx; dz = t.z - hz; dy = t.y - hy; }
     if (W.rocket) this.launchRocket(hx, hy, hz, dx, dy, dz, t, W, av);
     else {
-      this.fireBullet(hx, hy, hz, dx, dy, dz, { speed: W.speed, dmg: W.dmg, spread: W.spread, owner: 'player' });
+      this.fireBullet(hx, hy, hz, dx, dy, dz, { speed: W.speed, dmg: W.dmg, spread: W.spread, owner: 'player', ion: !!W.ion });
       g.audio.gunshot?.(this.weapon);
     }
     if (this.ammo[this.weapon] !== Infinity) this.ammo[this.weapon]--;
@@ -330,7 +333,7 @@ export class Combat {
       this.q.setFromUnitVectors(this.fwd, this.v);
       this.m.compose(this.v.set(b.x, b.y, b.z), this.q, this.s);
       this.mesh.setMatrixAt(i, this.m);
-      this.mesh.setColorAt(i, b.owner === 'player' ? this.cBul : this.cCop);
+      this.mesh.setColorAt(i, b.ion ? this.cIon : b.owner === 'player' ? this.cBul : this.cCop);
     }
     this.mesh.count = n;
     this.mesh.instanceMatrix.needsUpdate = true;
@@ -339,10 +342,10 @@ export class Combat {
 
   // Cycle to the next weapon that has ammo.
   nextWeapon() {
-    const order = ['pistol', 'smg', 'rpg'];
+    const order = ['pistol', 'smg', 'carbine', 'rpg'];
     let i = order.indexOf(this.weapon);
-    for (let k = 0; k < 3; k++) {
-      i = (i + 1) % 3;
+    for (let k = 0; k < order.length; k++) {
+      i = (i + 1) % order.length;
       if (this.ammo[order[i]] > 0) { this.weapon = order[i]; return this.weapon; }
     }
     return this.weapon;

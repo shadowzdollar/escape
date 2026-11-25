@@ -354,7 +354,7 @@ class Game {
     this.applyAtmosphere(map);
     this.minimap.build(this.city);
     this.people.setCity(this.city);
-    this.effects.setWeather(map.id === 'night' ? 'rain' : map.id === 'snow' ? 'snow' : null);
+    this.effects.setWeather(map.id === 'night' || map.id === 'vesper' ? 'rain' : map.id === 'snow' ? 'snow' : null);
     this.ui.setLoading('Warming up engines…');
     await new Promise((r) => setTimeout(r, 20));
     this.showroomCar(this.save.selected);
@@ -416,7 +416,7 @@ class Game {
       gu.saturation.value = a.grade.sat; gu.contrast.value = a.grade.con; gu.vignette.value = a.grade.vig;
       gu.tint.value.setRGB(...a.grade.tint);
     }
-    this.audio.setAmbient(map.id === 'night' ? 'rain' : map.id === 'snow' || map.id === 'desert' || map.id === 'giza' ? 'wind' : null);
+    this.audio.setAmbient(map.id === 'night' || map.id === 'vesper' ? 'rain' : map.id === 'snow' || map.id === 'desert' || map.id === 'giza' ? 'wind' : null);
   }
 
   selectMap(id) {
@@ -1079,6 +1079,9 @@ class Game {
       case 'nitro': this.nitro = 1; this.avatar.stamina = 1; this.ui.toast(this.car ? 'NITRO FULL' : 'STAMINA FULL', 'good'); break;
       case 'guns':
         if (this.car) { this.combat.carGuns = 15; this.ui.toast('MACHINE GUNS: AUTO-FIRE 15s', 'good'); } else { this.combat.ammo.smg += 150; this.combat.weapon = 'smg'; this.ui.toast('SMG +150', 'good'); }
+        break;
+      case 'carbine':
+        if (this.car) { this.combat.carGuns = 15; this.ui.toast('ION GUNS: AUTO-FIRE 15s', 'good'); } else { this.combat.ammo.carbine += 120; this.combat.weapon = 'carbine'; this.ui.toast('PULSE CARBINE +120', 'good'); }
         break;
       case 'rockets':
         if (this.car) { this.combat.carRockets += 6; this.ui.toast('ROCKETS x6: AUTO-LOCK', 'good'); } else { this.combat.ammo.rpg += 6; this.combat.weapon = 'rpg'; this.ui.toast('ROCKET LAUNCHER x6', 'good'); }

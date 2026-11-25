@@ -106,6 +106,7 @@ kbd {
 .map-card small { margin-top: 8px; font-weight: 700; color: var(--accent); text-shadow: 0 1px 4px rgba(0,0,0,.8); }
 .map-city { background: linear-gradient(160deg, #6bb8ff, #3c6fb0 55%, #2b3d5a); }
 .map-night { background: linear-gradient(160deg, #3a1d6e, #13163a 55%, #ff2d95 160%); }
+.map-vesper { background: linear-gradient(160deg, #00e5ff -40%, #0a1230 45%, #ff2bd6 170%); }
 .map-desert { background: linear-gradient(160deg, #ffb46b, #d9824a 55%, #6b3b2a); }
 .map-snow { background: linear-gradient(160deg, #e8f2ff, #9fb8d6 55%, #4d6480); }
 

@@ -228,6 +228,7 @@ export class GameAudio {
   gunshot(kind = 'pistol', dist = 0) {
     if (!this.ctx) return;
     const k = Math.max(0.1, 1 - dist / 120);
+    if (kind === 'carbine') { this.tone('sawtooth', 1400, 260, 0.09, 0.1 * k); this.tone('sine', 520, 180, 0.07, 0.12 * k); this.noiseHit(3600, 0.04, 0.1 * k, 'highpass'); return; }
     if (kind === 'mg' || kind === 'smg') { this.noiseHit(2400, 0.07, 0.22 * k, 'highpass'); this.tone('square', 180, 90, 0.05, 0.08 * k); return; }
     this.noiseHit(1800, 0.12, 0.4 * k, 'bandpass');
     this.noiseHit(500, 0.18, 0.25 * k);
