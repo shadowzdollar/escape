@@ -41,6 +41,8 @@ import { People } from './people.js';
 import { Humans } from './humans.js';
 import { Avatar } from './avatar.js';
 import { Combat, WEAPONS } from './combat.js';
+import { RagdollManager } from './ragdoll.js';
+import { NeonWeaponVFX } from './neonWeaponVFX.js';
 import { TROPHIES } from './campaign.js';
 import { StoryRun } from './story/engine.js';
 import { getMission, nextStoryMission, rankOf, STORY_FINAL } from './story/index.js';
@@ -67,6 +69,11 @@ const ATMOS = {
     sky: ['#02040b', '#18203c'], fog: '#131a2d', fogNear: 60, fogFar: 330, sun: '#8ea6ff', sunI: 0.5, sunDir: [-0.35, 0.85, -0.4],
     hemi: ['#3a4a82', '#0c0c14', 0.55], env: 0.22, bloom: [0.85, 0.55, 0.6], exposure: 1.15, stars: true,
     grade: { sat: 1.18, con: 1.1, tint: [0.95, 0.98, 1.06], vig: 1.2 },
+  },
+  cyber: {
+    sky: ['#051423', '#0d2842'], fog: '#082a43', fogNear: 70, fogFar: 450, sun: '#73b5df', sunI: 1.25, sunDir: [-0.45, 0.95, -0.65],
+    hemi: ['#679db9', '#26394d', 1.05], env: 0.35, bloom: [0.95, 0.55, 0.55], exposure: 1.25, stars: true,
+    grade: { sat: 1.25, con: 1.15, tint: [0.92, 1.05, 1.15], vig: 1.1 },
   },
   dusk: {
     sky: ['#2c4a88', '#ffb070'], fog: '#e7a97e', fogNear: 140, fogFar: 540, sun: '#ffb877', sunI: 2.7, sunDir: [0.75, 0.38, 0.3],
@@ -160,6 +167,8 @@ class Game {
     this.humans = new Humans(this);
     this.avatar = new Avatar(this);
     this.combat = new Combat(this);
+    this.ragdolls = new RagdollManager(this);
+    this.neonVFX = new NeonWeaponVFX(this);
     this.boats = new Boats(this);
     this.car = null;
     this.abandoned = [];
@@ -488,6 +497,8 @@ class Game {
     this.mission?.dispose();
     this.mission = null;
     this.combat.reset();
+    this.ragdolls?.reset();
+    this.neonVFX?.reset();
     this.car = null;
     this.player = null;
     this.city?.resetBreakables();
@@ -519,7 +530,8 @@ class Game {
     this.armVehicle(p, def);
     p.car.root.traverse((o) => { if (o.isMesh && o !== p.car.shadow && o !== p.car.beam) o.castShadow = true; });
     const bank = this.city.bank;
-    if (bank) p.place(bank.carX, bank.carZ, 0); else p.place(-4, -10, 0);
+    if (this.map.id === 'vesper') p.place(0, 25, Math.PI);
+    else if (bank) p.place(bank.carX, bank.carZ, 0); else p.place(-4, -10, 0);
     this.scene.add(p.root);
     this.vehicles.add(p);
     p.car.beam.visible = this.isNight;
@@ -1399,6 +1411,8 @@ class Game {
     this.humans.update(dt);
     this.military.update(dt);
     this.combat.update(dt);
+    this.ragdolls?.update(dt);
+    this.neonVFX?.update(dt);
     this.boats.update(dt);
     for (let i = this.abandoned.length - 1; i >= 0; i--) {
       const v = this.abandoned[i];

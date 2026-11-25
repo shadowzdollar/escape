@@ -36,8 +36,9 @@ export class Avatar {
   spawn(x, z, heading, vx = 0, vz = 0) {
     const people = this.game.people;
     if (!this.person || !people.list.includes(this.person)) {
+      const rigKind = this.game.map?.id === 'vesper' ? 'punk' : 'hoodie';
       this.person = people.make(x, z, {
-        script: true, avatar: true, priority: true, rigKind: 'hoodie', outfit: 'dark', armed: true,
+        script: true, avatar: true, priority: true, rigKind, outfit: 'dark', armed: true,
         height: 1.8, mode: 'player', walk: 0,
       });
     }

@@ -10,6 +10,7 @@ import {
 } from './textures.js';
 import { cityKit } from './cityKit.js';
 import { buildVesper } from './vesper.js';
+import { NeonCityAdapter } from './neonCity.js';
 
 const { N, BLOCK, ROAD, SIDEWALK, CELL, RIVER_ROW, HALF } = CITY;
 // Objects on this layer are drawn only by the sun's shadow camera (cheap shadow proxies).
@@ -418,6 +419,7 @@ export class City {
 
   // Is (x,z) on a drivable road surface (not a block)?
   isRoad(x, z) {
+    if (this.neonAdapter) return this.neonAdapter.isRoad(x, z);
     if (Math.abs(x) > HALF || Math.abs(z) > HALF) return false;
     const fx = ((x - rc(0)) % CELL + CELL) % CELL;
     const fz = ((z - rc(0)) % CELL + CELL) % CELL;
@@ -433,6 +435,7 @@ export class City {
     return true;
   }
   groundHeight(x, z) {
+    if (this.neonAdapter) return this.neonAdapter.groundHeightAt ? this.neonAdapter.groundHeightAt(x, z) : 0.15;
     if (Math.abs(x) > HALF || Math.abs(z) > HALF) return 0;
     const fx = ((x - rc(0)) % CELL + CELL) % CELL;
     const fz = ((z - rc(0)) % CELL + CELL) % CELL;
@@ -443,6 +446,7 @@ export class City {
   }
   // A random point on a road lane, between minD and maxD from (cx,cz).
   randomRoadSpot(rng, cx, cz, minD, maxD, tries = 40) {
+    if (this.neonAdapter) return this.neonAdapter.randomRoadSpot(rng, cx, cz, minD, maxD, tries);
     for (let t = 0; t < tries; t++) {
       const ang = rng() * Math.PI * 2;
       const d = minD + (maxD - minD) * rng();
@@ -588,13 +592,17 @@ export class City {
       });
     }
 
-    this.generateBlocks();
-    this.buildRoads();
-    this.buildStreetLife();
-    this.buildRiver();
-    this.buildBoundary();
-    this.buildOutskirts();
-    if (this.map.theme === 'cyber') this.cyber = buildVesper(this);
+    if (this.map.id === 'vesper') {
+      this.neonAdapter = new NeonCityAdapter(this, this.map);
+    } else {
+      this.generateBlocks();
+      this.buildRoads();
+      this.buildStreetLife();
+      this.buildRiver();
+      this.buildBoundary();
+      this.buildOutskirts();
+      if (this.map.theme === 'cyber') this.cyber = buildVesper(this);
+    }
     this.finalize();
   }
 
@@ -1898,6 +1906,7 @@ export class City {
       set(this.tlMat.b, t >= 8 && t < 14.5 ? 'g' : t >= 14.5 ? 'y' : 'r');
     }
     this.cyber?.update(dt, time);
+    this.neonAdapter?.update(dt, time, this.game?.player);
     // aviation beacons blink
     if (this.beaconMat) {
       const on = Math.sin(time * 3) > 0.3;
@@ -1907,6 +1916,7 @@ export class City {
 
   dispose() {
     this.cyber?.dispose();
+    this.neonAdapter?.dispose();
     this.group.traverse((o) => {
       if (o.geometry) o.geometry.dispose();
     });

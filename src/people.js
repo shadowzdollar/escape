@@ -208,12 +208,14 @@ export class People {
 
   randomBlock(minD, maxD) {
     const g = this.game, fx = g.focus.x, fz = g.focus.z;
+    if (!g.city?.blocks || g.city.blocks.length === 0) return null;
     for (let t = 0; t < 14; t++) {
       const b = g.city.blocks[Math.floor(R() * g.city.blocks.length)];
+      if (!b) continue;
       const d = Math.hypot((b.x0 + b.x1) / 2 - fx, (b.z0 + b.z1) / 2 - fz);
       if (d > minD - 30 && d < maxD + 30) return b;
     }
-    return null;
+    return g.city.blocks[0] || null;
   }
 
   spawn(minD, maxD) {
@@ -354,8 +356,10 @@ export class People {
   }
 
   nearestBlock(x, z) {
+    if (!this.game.city?.blocks || this.game.city.blocks.length === 0) return null;
     let best = null, bd = 1e9;
     for (const b of this.game.city.blocks) {
+      if (!b) continue;
       const d = Math.hypot(clamp(x, b.x0, b.x1) - x, clamp(z, b.z0, b.z1) - z);
       if (d < bd) { bd = d; best = b; }
     }
@@ -390,6 +394,7 @@ export class People {
     p.timer = 2.2 + R() * 1.8;
     p.path = [];
     p.phoneOut = false; p.film = false;
+    if (this.game.ragdolls) this.game.ragdolls.spawn(p, { vx, vy: p.vy, vz, speed: sp, cause: 'vehicle' });
   }
 
   flee(p, fx, fz, time = 4) {

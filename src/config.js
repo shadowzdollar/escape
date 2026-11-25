@@ -81,6 +81,7 @@ export const CARS = [
   { id: 'rhino', name: 'RHINO', model: 'gelande', war: true, weapons: ['mg'], price: 9000, color: '#b59a6a', accent: '#3b3b2e', tagline: 'Armoured 4x4 with a roof machine-gun turret.', stats: { speed: 43, accel: 25, handling: 2.5, grip: 7.4, hp: 420, mass: 2.7 } },
   { id: 'warhog', name: 'WARHOG', model: 'raptor', war: true, weapons: ['rockets', 'mg'], price: 12000, color: '#5b6344', tagline: 'Desert technical: rocket pod in the bed, gun on the roof.', stats: { speed: 45, accel: 26, handling: 2.5, grip: 7.2, hp: 380, mass: 2.5 } },
   { id: 'ghost', name: 'GHOST', model: 'hyper', war: true, weapons: ['missiles'], price: 16000, color: '#15171a', tagline: 'Matte-black interceptor with homing missile pods.', stats: { speed: 58, accel: 38, handling: 3.4, grip: 8.8, hp: 240, mass: 1.5 } },
+  { id: 'interceptor', name: 'YUREI INTERCEPTOR', model: 'interceptor', war: true, weapons: ['carbine', 'missiles'], price: 15000, color: '#0d1520', accent: '#00f0ff', tagline: 'Cyberpunk interceptor from Neon District with twin ion cannons and cyan underglow.', stats: { speed: 64, accel: 44, handling: 3.7, grip: 9.3, hp: 350, mass: 1.4 } },
   { id: 'goliath', name: 'GOLIATH MBT', model: 'tank', war: true, weapons: ['cannon', 'mg'], price: 25000, color: '#5f6b3e', tagline: 'Your own main battle tank. 120mm cannon, coax gun, 1200 armour.', stats: { speed: 27, accel: 13, handling: 1.7, grip: 9.0, hp: 1200, mass: 7.0 } },
 ];
 
@@ -101,7 +102,7 @@ export const MAPS = [
   },
   {
     id: 'vesper', name: 'VESPER CITY', desc: 'Cyberpunk voxel megacity: neon, holo-ads, drones, rain.', seed: 2077,
-    theme: 'cyber', time: 'night', grip: 0.9,
+    theme: 'cyber', time: 'cyber', grip: 0.9,
   },
   {
     id: 'desert', name: 'DUST VALLEY', desc: 'Sun-baked desert town at golden hour.', seed: 777,

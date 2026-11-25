@@ -69,6 +69,7 @@ export const SPECS = {
   },
 };
 SPECS.taxi = { ...SPECS.sedan, taxiSign: true, rim: 'steel' };
+SPECS.interceptor = { ...SPECS.hyper, L: 4.85, W: 2.05, neon: true, spoiler: 'wing', exhaust: 'quad', head: 'slim', tail: 'bar' };
 
 // ---- real-world inspired line-up (fictional names)
 SPECS.toro = { ...SPECS.super, L: 4.8, W: 2.05, noseDz: 0.75, noseTop: 0.42, hoodY: 0.74, cowlZ: 0.55, roofY: 1.08, roofFZ: -0.2, roofRZ: -0.95, rwZ: -2.05, deckY: 0.9, tailTop: 0.9, spoiler: 'duck', head: 'slim', tail: 'bar', rim: 'aero', exhaust: 'center' };

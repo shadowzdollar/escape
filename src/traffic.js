@@ -67,7 +67,7 @@ export class Traffic {
     const fp = city.nodePos(from);
     const dx = Math.round(Math.sin(spot.heading)), dz = Math.round(Math.cos(spot.heading));
     const to = city.nearestNode(fp.x + dx * CELL, fp.z + dz * CELL);
-    if (to === from || !city.adj[from].includes(to)) return;
+    if (to === from || !city.adj?.[from]?.includes(to)) return;
     const rx = -dz, rz = dx;
     const x = spot.x + rx * LANE, z = spot.z + rz * LANE;
     for (const v of g.vehicles) if (Math.hypot(v.x - x, v.z - z) < 13) return;

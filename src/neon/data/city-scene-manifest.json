@@ -1,0 +1,377 @@
+{
+  "file": "neon-district-city.blend",
+  "bytes": 63111042,
+  "sha256": "5d016b746b7caae94e2ceb84caa8e250bb6f40d3c1e56fd06d4c3b13311e54c3",
+  "blender": "5.2.1 LTS",
+  "scenes": [
+    "VESPER / street composition",
+    "VESPER / complete city aerial",
+    "VESPER / architectural blueprint"
+  ],
+  "cameras": 5,
+  "nativeVoxelModules": 160453,
+  "excludedDuplicateFarLodModules": 2112,
+  "buildings": 185,
+  "editableSigns": 646,
+  "structuralSupports": 5775,
+  "elevatedConnections": 45,
+  "parcels": 75,
+  "roads": 16,
+  "cityWidthMetres": 700,
+  "cityDepthMetres": 790,
+  "packedImages": [
+    "advert-portrait.png",
+    "advert-kuro-optics.png",
+    "advert-axiom.png",
+    "advert-orbital.png",
+    "advert-noodle.png",
+    "advert-recast.png",
+    "advert-kinkeep.png",
+    "advert-everon.png",
+    "advert-quietus.png",
+    "advert-vyra.png",
+    "advert-grinpop.png",
+    "advert-syntask.png",
+    "advert-nesto.png",
+    "advert-irisyn.png",
+    "advert-else.png",
+    "advert-vesper-arc.png",
+    "advert-synthsilk.png"
+  ],
+  "animatedRoadVehicles": 16,
+  "streetLifeAssemblies": 17,
+  "supplyFoundations": 15,
+  "supplyStackSpacers": 5,
+  "resolvedCivilianRigs": 284,
+  "civilianVoxelParts": 14785,
+  "civilianMaximumWorldErrorMetres": 0.00012302034810695442,
+  "overheadAircraft": 16,
+  "overheadAircraftVoxelParts": 240,
+  "characterPosePolicy": "Exact resolved runtime frame-zero population. Four editable finite gait clips are in character-workshop.blend; live simulation remains in Three.js.",
+  "overheadAircraftPosePolicy": "Exact frame-zero voxel craft, roots and bob phase; live flight remains in Three.js.",
+  "groundedPhysicalBins": 12,
+  "planObjects": 8210,
+  "streetFrontages": 77,
+  "streetFrontageVoxelModules": 5256,
+  "serviceMechanisms": 15,
+  "serviceMechanismParts": 318,
+  "serviceShuttersReplaced": 15,
+  "serviceMechanismSourceHash": "d76c455fe433af286608bb6825b3a9a1a53452b5d9d0d68a1fea01beb18debd8",
+  "authoredBlockAssemblies": 31,
+  "authoredBlockVoxelModules": 2413,
+  "industrialMaterialProfiles": [
+    "contactMetal",
+    "oxide",
+    "paintedSteel"
+  ],
+  "industrialProfileVoxelModules": 855,
+  "mountedNativeTaskLights": 3,
+  "serviceCourtFrontages": 17,
+  "facadeRecordsRefit": 547,
+  "facadeRefitFragments": 1413,
+  "facadeRefitMaximumBoundsErrorMetres": 2.6855468718167685e-05,
+  "previewImages": [
+    {
+      "file": "city-scene-preview.png",
+      "bytes": 2806543,
+      "modifiedAtUTC": "2026-09-06T06:01:51.745998+00:00",
+      "sha256": "15b676e43f050acd1ba19e70c304f8317ba93c9a8fb300edc83e84b860393808",
+      "currentGeometry": false
+    },
+    {
+      "file": "city-aerial-preview.png",
+      "bytes": 2378450,
+      "modifiedAtUTC": "2026-09-06T06:02:10.332008+00:00",
+      "sha256": "8d47f89958fb8c125ac5282054eb95eaff4692213f6f15d7d076ccdfea1dd815",
+      "currentGeometry": false
+    },
+    {
+      "file": "city-blueprint-preview.png",
+      "bytes": 5064441,
+      "modifiedAtUTC": "2026-09-06T06:02:13.660717+00:00",
+      "sha256": "5d1f45a3585bf7df746cacc5d63d489be24eaa2500f345dc89183b7735b6375a",
+      "currentGeometry": false
+    }
+  ],
+  "preservedViewpoints": 5,
+  "previewImagesCurrent": false,
+  "verification": "Fresh Blender reopen verified exact current structural blueprint and campaign catalog, all packed images, actual-aspect native image planes, shared asset anchors, unarmed hero geometry, grounded bins, and looping traffic animation.",
+  "heroAssetRevision": "Unarmed cybernetic right hand from current cyberpunk-assets.blend",
+  "advertCampaigns": [
+    {
+      "id": "kuro-optics",
+      "file": "advert-kuro-optics.png",
+      "label": "KURO OPTICS",
+      "aspectRatio": 0.6666666666666666,
+      "tint": "#b9ed52",
+      "districts": [
+        "Meridian East",
+        "Iron Docks"
+      ],
+      "index": 0,
+      "nativePlacements": 10,
+      "imagePixels": [
+        1024,
+        1536
+      ]
+    },
+    {
+      "id": "axiom",
+      "file": "advert-axiom.png",
+      "label": "AXIOM",
+      "aspectRatio": 0.6666666666666666,
+      "tint": "#fa634f",
+      "districts": [
+        "Stacktown",
+        "Meridian East"
+      ],
+      "index": 1,
+      "nativePlacements": 19,
+      "imagePixels": [
+        1024,
+        1536
+      ]
+    },
+    {
+      "id": "orbital",
+      "file": "advert-orbital.png",
+      "label": "OFFWORLD",
+      "aspectRatio": 0.6666666666666666,
+      "tint": "#9990ff",
+      "districts": [
+        "Crown Plaza",
+        "Iron Docks"
+      ],
+      "index": 2,
+      "nativePlacements": 12,
+      "imagePixels": [
+        1024,
+        1536
+      ]
+    },
+    {
+      "id": "noodle",
+      "file": "advert-noodle.png",
+      "label": "MIDNIGHT RAMEN",
+      "aspectRatio": 0.6666666666666666,
+      "tint": "#ffac56",
+      "districts": [
+        "Lantern Market",
+        "Stacktown"
+      ],
+      "index": 3,
+      "nativePlacements": 1,
+      "imagePixels": [
+        1024,
+        1536
+      ]
+    },
+    {
+      "id": "recast",
+      "file": "advert-recast.png",
+      "label": "RECAST",
+      "aspectRatio": 1.7777777777777777,
+      "tint": "#f090ce",
+      "districts": [
+        "Meridian East",
+        "Stacktown"
+      ],
+      "index": 4,
+      "nativePlacements": 4,
+      "imagePixels": [
+        1672,
+        941
+      ]
+    },
+    {
+      "id": "kinkeep",
+      "file": "advert-kinkeep.png",
+      "label": "KINKEEP",
+      "aspectRatio": 0.6666666666666666,
+      "tint": "#ecb977",
+      "districts": [
+        "Stacktown",
+        "Lantern Market"
+      ],
+      "index": 5,
+      "nativePlacements": 4,
+      "imagePixels": [
+        1024,
+        1536
+      ]
+    },
+    {
+      "id": "everon",
+      "file": "advert-everon.png",
+      "label": "EVERON",
+      "aspectRatio": 1.7777777777777777,
+      "tint": "#c7e5ae",
+      "districts": [
+        "Crown Plaza",
+        "Meridian East"
+      ],
+      "index": 6,
+      "nativePlacements": 4,
+      "imagePixels": [
+        1672,
+        941
+      ]
+    },
+    {
+      "id": "quietus",
+      "file": "advert-quietus.png",
+      "label": "QUIETUS",
+      "aspectRatio": 0.6666666666666666,
+      "tint": "#addcd7",
+      "districts": [
+        "Meridian East",
+        "Crown Plaza"
+      ],
+      "index": 7,
+      "nativePlacements": 4,
+      "imagePixels": [
+        1024,
+        1536
+      ]
+    },
+    {
+      "id": "vyra",
+      "file": "advert-vyra.png",
+      "label": "VYRA",
+      "aspectRatio": 1.7777777777777777,
+      "tint": "#ec71d6",
+      "districts": [
+        "Stacktown",
+        "Lantern Market"
+      ],
+      "index": 8,
+      "nativePlacements": 4,
+      "imagePixels": [
+        1672,
+        941
+      ]
+    },
+    {
+      "id": "grinpop",
+      "file": "advert-grinpop.png",
+      "label": "GRINPOP",
+      "aspectRatio": 1.7777777777777777,
+      "tint": "#f2bb60",
+      "districts": [
+        "Lantern Market",
+        "Iron Docks"
+      ],
+      "index": 9,
+      "nativePlacements": 4,
+      "imagePixels": [
+        1672,
+        941
+      ]
+    },
+    {
+      "id": "syntask",
+      "file": "advert-syntask.png",
+      "label": "SYNTASK",
+      "aspectRatio": 0.6666666666666666,
+      "tint": "#acda63",
+      "districts": [
+        "Iron Docks",
+        "Meridian East"
+      ],
+      "index": 10,
+      "nativePlacements": 4,
+      "imagePixels": [
+        1024,
+        1536
+      ]
+    },
+    {
+      "id": "nesto",
+      "file": "advert-nesto.png",
+      "label": "NESTO",
+      "aspectRatio": 0.8,
+      "tint": "#a99ce4",
+      "districts": [
+        "Stacktown",
+        "Crown Plaza"
+      ],
+      "index": 11,
+      "nativePlacements": 4,
+      "imagePixels": [
+        1122,
+        1402
+      ]
+    },
+    {
+      "id": "irisyn",
+      "file": "advert-irisyn.png",
+      "label": "IRISYN",
+      "aspectRatio": 1.7777777777777777,
+      "tint": "#77deed",
+      "districts": [
+        "Meridian East",
+        "Iron Docks"
+      ],
+      "index": 12,
+      "nativePlacements": 4,
+      "imagePixels": [
+        1672,
+        941
+      ]
+    },
+    {
+      "id": "else",
+      "file": "advert-else.png",
+      "label": "ELSE",
+      "aspectRatio": 1.7777777777777777,
+      "tint": "#e9a3ce",
+      "districts": [
+        "Crown Plaza",
+        "Lantern Market"
+      ],
+      "index": 13,
+      "nativePlacements": 4,
+      "imagePixels": [
+        1672,
+        941
+      ]
+    },
+    {
+      "id": "vesper-arc",
+      "file": "advert-vesper-arc.png",
+      "label": "VESPER ARC",
+      "aspectRatio": 0.6666666666666666,
+      "tint": "#98b9ee",
+      "districts": [
+        "Crown Plaza",
+        "Iron Docks"
+      ],
+      "index": 14,
+      "nativePlacements": 4,
+      "imagePixels": [
+        1024,
+        1536
+      ]
+    },
+    {
+      "id": "synthsilk",
+      "file": "advert-synthsilk.png",
+      "label": "SYNTHSILK",
+      "aspectRatio": 0.6666666666666666,
+      "tint": "#e691cf",
+      "districts": [
+        "Stacktown",
+        "Crown Plaza"
+      ],
+      "index": 15,
+      "nativePlacements": 4,
+      "imagePixels": [
+        1024,
+        1536
+      ]
+    }
+  ],
+  "newAdvertPlacements": 48,
+  "advertImagePanels": 91,
+  "advertSourceCatalog": "src/advert-campaigns.js; embedded as VESPER / advert campaign catalog.json"
+}

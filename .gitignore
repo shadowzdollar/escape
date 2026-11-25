@@ -43,3 +43,4 @@ Thumbs.db
 .workspace/
 game_reference/
 GAME_REFERENCE/
+dev/*.png

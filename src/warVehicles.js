@@ -5,6 +5,7 @@ import * as THREE from 'three';
 
 export const VEHICLE_WEAPONS = {
   mg: { name: 'MACHINE GUN', rate: 11, dmg: 8, spread: 0.045, speed: 145, turret: true },
+  carbine: { name: 'ION CANNON', rate: 9, dmg: 16, spread: 0.02, speed: 185, turret: true, ion: true },
   cannon: { name: 'TANK CANNON', rate: 0.55, dmg: 180, radius: 9, shell: true, turret: true },
   rockets: { name: 'ROCKET POD', rate: 1.8, dmg: 140, radius: 8, rocket: true, cone: 1.1 },
   missiles: { name: 'HOMING MISSILES', rate: 1.2, dmg: 160, radius: 8, rocket: true, cone: 1.4 },

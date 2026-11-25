@@ -1,0 +1,210 @@
+{
+  "pulse-carbine": {
+    "file": "pulse-carbine.glb",
+    "gltf_min": [
+      -0.09799999743700027,
+      -0.22699999809265137,
+      -0.7459999918937683
+    ],
+    "gltf_max": [
+      0.12250000238418579,
+      0.265500009059906,
+      0.2370000034570694
+    ],
+    "dimensions": [
+      0.22049999982118607,
+      0.4925000071525574,
+      0.9829999953508377
+    ],
+    "meshes": 12,
+    "vertices": 2024,
+    "voxelModules": 253,
+    "fileBytes": 190200,
+    "sha256": "17d796ecd0db3e30884f09dc1c4a42db5aac6e0f75ddd502c679b40dca1dd2e4",
+    "nodes": [
+      "pulse_carbine",
+      "barrel_and_open_muzzle",
+      "bolt",
+      "eject_socket",
+      "handguard",
+      "magazine",
+      "muzzle_socket",
+      "pistol_grip",
+      "receiver",
+      "serial_and_markings",
+      "shoulder_stock",
+      "sight_socket",
+      "status_display",
+      "support_grip_socket",
+      "top_rail_and_sights",
+      "trigger",
+      "trigger_guard"
+    ]
+  },
+  "ion-bolt": {
+    "file": "ion-bolt.glb",
+    "gltf_min": [
+      -0.02850000001490116,
+      -0.026000000536441803,
+      -0.0
+    ],
+    "gltf_max": [
+      0.02850000001490116,
+      0.026000000536441803,
+      0.8140000104904175
+    ],
+    "dimensions": [
+      0.05700000002980232,
+      0.052000001072883606,
+      0.8140000104904175
+    ],
+    "meshes": 1,
+    "vertices": 72,
+    "voxelModules": 9,
+    "fileBytes": 9380,
+    "sha256": "6631b32968fdd8fb2d5e83c3a1fd0e1a088cd60ca570843eb18019fe2c96415d",
+    "nodes": [
+      "ion_bolt",
+      "ion_bolt_core"
+    ]
+  },
+  "muzzle-flash": {
+    "file": "muzzle-flash.glb",
+    "gltf_min": [
+      -0.04600000008940697,
+      -0.041999999433755875,
+      -0.18250000476837158
+    ],
+    "gltf_max": [
+      0.03370000049471855,
+      0.041999999433755875,
+      -0.0
+    ],
+    "dimensions": [
+      0.07970000058412552,
+      0.08399999886751175,
+      0.18250000476837158
+    ],
+    "meshes": 1,
+    "vertices": 136,
+    "voxelModules": 17,
+    "fileBytes": 13780,
+    "sha256": "43d060fd8109e5e827fa1ab521259b047fb1c586f0c1bbe351bc23ca5145c36c",
+    "nodes": [
+      "muzzle_flash",
+      "angular_muzzle_prongs"
+    ]
+  },
+  "impact-shards": {
+    "file": "impact-shards.glb",
+    "gltf_min": [
+      -0.03115163743495941,
+      -0.016191944479942322,
+      -0.02932743728160858
+    ],
+    "gltf_max": [
+      0.02781594544649124,
+      0.02897467650473118,
+      0.0314585380256176
+    ],
+    "dimensions": [
+      0.05896758288145065,
+      0.0451666209846735,
+      0.06078597530722618
+    ],
+    "meshes": 10,
+    "vertices": 160,
+    "voxelModules": 20,
+    "fileBytes": 24320,
+    "sha256": "d8a1cc4ea9c48cdb935d8d908db665323258fff463ebaec7c8f98388b320ec1c",
+    "nodes": [
+      "impact_shards",
+      "shard_00",
+      "shard_01",
+      "shard_02",
+      "shard_03",
+      "shard_04",
+      "shard_05",
+      "shard_06",
+      "shard_07",
+      "shard_08",
+      "shard_09"
+    ]
+  },
+  "contract": {
+    "coordinateSystem": "glTF metres; X right, Y up, -Z forward",
+    "gripOrigin": [
+      0,
+      0,
+      0
+    ],
+    "muzzleSocket": {
+      "node": "muzzle_socket",
+      "position": [
+        0,
+        0.103,
+        -0.746
+      ],
+      "direction": [
+        0,
+        0,
+        -1
+      ],
+      "opening": [
+        0.084,
+        0.074
+      ],
+      "bore": [
+        0.056,
+        0.052
+      ]
+    },
+    "ejectSocket": {
+      "node": "eject_socket",
+      "position": [
+        0.095,
+        0.144,
+        -0.053
+      ],
+      "direction": [
+        1,
+        0.3,
+        0.1
+      ]
+    },
+    "animationParts": {
+      "bolt": {
+        "axis": "local Z",
+        "travel": 0.042
+      },
+      "magazine": {
+        "direction": [
+          0,
+          -1,
+          0.08
+        ],
+        "travel": 0.21
+      },
+      "trigger": {
+        "axis": "local X",
+        "angle": -0.16
+      }
+    },
+    "projectile": "ion-bolt nose at origin; trail extends +Z",
+    "flash": "muzzle-flash extends -Z from origin; recommended lifetime45ms",
+    "impact": "10 individually named shard meshes with burstDirection, burstSpeed and spin extras; recommended lifetime320ms",
+    "handsIncluded": false
+  },
+  "verification": {
+    "status": "passed",
+    "checkedAtUTC": "2026-09-06T06:25:05.095696+00:00",
+    "freshBlendReopen": true,
+    "glbSocketOrientationVerified": true,
+    "separateAnimationNodesVerified": true,
+    "gunComponentsConnected": 12,
+    "attachmentToleranceMetres": 0.004,
+    "nativeFile": "pulse-carbine.blend",
+    "nativeBytes": 136308,
+    "nativeSHA256": "e5e6e302653389ee46c8ec21a589a0b83e0247dc8640d72e793ae2b5e30b8f32"
+  }
+}

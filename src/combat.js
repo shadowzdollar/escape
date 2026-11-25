@@ -89,8 +89,12 @@ export class Combat {
     const n = Math.hypot(dx, dy, dz);
     this.bullets.push({ x, y, z, vx: dx / n * speed, vy: dy / n * speed, vz: dz / n * speed, life: 1.1, dmg, owner, ion });
     if (owner === 'player') this.game.mission?.onNoise?.(x, z); // guards hear gunfire
-    if (ion) this.game.effects.glowP.spawn(x, y, z, 0, 0, 0, 0.15, 0.9, 1, 0.7, 0.06, { alpha: 1 });
-    else this.game.effects.glowP.spawn(x, y, z, 0, 0, 0, 1, 0.8, 0.4, 0.55, 0.05, { alpha: 1 });
+    if (ion) {
+      this.game.effects.glowP.spawn(x, y, z, 0, 0, 0, 0.15, 0.9, 1, 0.7, 0.06, { alpha: 1 });
+      this.game.neonVFX?.fire(new THREE.Vector3(x, y, z), new THREE.Vector3(dx, dy, dz));
+    } else {
+      this.game.effects.glowP.spawn(x, y, z, 0, 0, 0, 1, 0.8, 0.4, 0.55, 0.05, { alpha: 1 });
+    }
   }
 
   // Player on foot pulls the trigger. aim: { yaw, manual } in world space.
@@ -273,11 +277,17 @@ export class Combat {
 
   hit(t, dmg, b) {
     const g = this.game;
+    if (b?.ion) g.neonVFX?.spawnImpact(new THREE.Vector3(b.x, b.y, b.z), new THREE.Vector3(-b.vx, -b.vy, -b.vz).normalize());
     if (t.kind === 'cop') {
       const p = t.ref;
       p.hp = (p.hp ?? 40) - dmg;
       g.effects.debrisBurst(p.x, p.z, [0.3, 0.3, 0.35], 2);
-      if (p.hp <= 0) { p.dead = true; g.people.knock(p, b.vx * 0.06, b.vz * 0.06); g.onOfficerDown?.(p); } else p.startle = 0.3;
+      if (p.hp <= 0) {
+        p.dead = true;
+        g.people.knock(p, b.vx * 0.06, b.vz * 0.06);
+        g.ragdolls?.spawn(p, { vx: b.vx * 0.1, vy: 1.6, vz: b.vz * 0.1, cause: 'gun' });
+        g.onOfficerDown?.(p);
+      } else p.startle = 0.3;
     } else if (t.kind === 'car') {
       const v = t.ref;
       v.damage(dmg * (v.copType === 'tank' ? 0.15 : 0.8));
